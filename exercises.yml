@@ -1,0 +1,6 @@
+exercises:
+  - name: exercise-01-tcp-echo
+    repo: unlu-sd2026/exercise-01-tcp-echo
+    test_dir: exercise-01-tcp-echo
+    type: python
+    sheet_column: ejercicio-01

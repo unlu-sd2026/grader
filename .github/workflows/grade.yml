@@ -1,0 +1,58 @@
+name: Grade Student Submissions
+
+on:
+  schedule:
+    - cron: "*/10 11-23 * * 1-5"
+    - cron: "*/10 0-2 * * 2-6"
+  workflow_dispatch:
+    inputs:
+      exercise:
+        description: "Exercise to grade (leave empty for all)"
+        required: false
+        default: ""
+      force:
+        description: "Re-grade all forks even if already graded"
+        required: false
+        default: "false"
+
+permissions:
+  contents: read
+
+jobs:
+  grade:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+
+    env:
+      GH_TOKEN: ${{ secrets.TEST_SUITE_TOKEN }}
+      GOOGLE_CREDENTIALS: ${{ secrets.GOOGLE_CREDENTIALS }}
+      SHEET_ID: ${{ secrets.SHEET_ID }}
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install dependencies
+        run: pip install -r requirements.txt
+
+      - name: Install grading tools
+        run: |
+          curl -sL https://github.com/hadolint/hadolint/releases/latest/download/hadolint-Linux-x86_64 \
+            -o /usr/local/bin/hadolint && chmod +x /usr/local/bin/hadolint
+          curl -sL https://github.com/yannh/kubeconform/releases/latest/download/kubeconform-linux-amd64.tar.gz \
+            | tar xz -C /usr/local/bin
+
+      - name: Clone test suite
+        run: |
+          git clone --depth 1 \
+            https://x-access-token:${GH_TOKEN}@github.com/unlu-sd2026/test-suite.git \
+            /tmp/test-suite
+
+      - name: Run grader
+        run: python grader.py
+        env:
+          INPUT_EXERCISE: ${{ inputs.exercise || '' }}
+          INPUT_FORCE: ${{ inputs.force || 'false' }}
