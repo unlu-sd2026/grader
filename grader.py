@@ -206,7 +206,7 @@ def report_to_sheet(service, student, exercise_col, passed, total):
     result = (
         service.spreadsheets()
         .values()
-        .get(spreadsheetId=SHEET_ID, range="Resultados!A:A")
+        .get(spreadsheetId=SHEET_ID, range="resultados!A:A")
         .execute()
     )
     values = result.get("values", [])
@@ -220,7 +220,7 @@ def report_to_sheet(service, student, exercise_col, passed, total):
         # Add new student
         service.spreadsheets().values().append(
             spreadsheetId=SHEET_ID,
-            range="Resultados!A:A",
+            range="resultados!A:A",
             valueInputOption="USER_ENTERED",
             body={"values": [[student]]},
         ).execute()
@@ -228,7 +228,7 @@ def report_to_sheet(service, student, exercise_col, passed, total):
         result = (
             service.spreadsheets()
             .values()
-            .get(spreadsheetId=SHEET_ID, range="Resultados!A:A")
+            .get(spreadsheetId=SHEET_ID, range="resultados!A:A")
             .execute()
         )
         values = result.get("values", [])
@@ -241,7 +241,7 @@ def report_to_sheet(service, student, exercise_col, passed, total):
     result = (
         service.spreadsheets()
         .values()
-        .get(spreadsheetId=SHEET_ID, range="Resultados!1:1")
+        .get(spreadsheetId=SHEET_ID, range="resultados!1:1")
         .execute()
     )
     headers = result.get("values", [[]])[0]
@@ -259,7 +259,7 @@ def report_to_sheet(service, student, exercise_col, passed, total):
     now = datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M")
     icon = "\u2705" if passed == total and total > 0 else "\u274c"
     value = f"{icon} {passed}/{total} ({now})"
-    cell = f"Resultados!{col_letter(ex_col)}{row}"
+    cell = f"resultados!{col_letter(ex_col)}{row}"
 
     service.spreadsheets().values().update(
         spreadsheetId=SHEET_ID,
