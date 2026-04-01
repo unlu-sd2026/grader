@@ -27,6 +27,7 @@ jobs:
       GH_TOKEN: ${{ secrets.TEST_SUITE_TOKEN }}
       GOOGLE_CREDENTIALS: ${{ secrets.GOOGLE_CREDENTIALS }}
       SHEET_ID: ${{ secrets.SHEET_ID }}
+      DISCORD_WEBHOOK: ${{ secrets.DISCORD_WEBHOOK }}
 
     steps:
       - uses: actions/checkout@v4

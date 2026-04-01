@@ -4,15 +4,24 @@ exercises:
     test_dir: exercise-01-tcp-echo
     type: python
     sheet_column: ejercicio-01
+    deadline: "2026-04-30T23:59:00"
+    late_days: 3
+    max_retries: 10
 
   - name: exercise-02-fastapi-docker
     repo: unlu-sd2026/exercise-02-fastapi-docker
     test_dir: exercise-02-fastapi-docker
     type: docker
     sheet_column: ejercicio-02
+    deadline: "2026-05-15T23:59:00"
+    late_days: 3
+    max_retries: 10
 
   - name: exercise-03-docker-best-practices
     repo: unlu-sd2026/exercise-03-docker-best-practices
     test_dir: exercise-03-docker-best-practices
     type: docker
     sheet_column: ejercicio-03
+    deadline: "2026-06-01T23:59:00"
+    late_days: 3
+    max_retries: 10
