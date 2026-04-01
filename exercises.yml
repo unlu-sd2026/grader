@@ -4,3 +4,15 @@ exercises:
     test_dir: exercise-01-tcp-echo
     type: python
     sheet_column: ejercicio-01
+
+  - name: exercise-02-fastapi-docker
+    repo: unlu-sd2026/exercise-02-fastapi-docker
+    test_dir: exercise-02-fastapi-docker
+    type: docker
+    sheet_column: ejercicio-02
+
+  - name: exercise-03-docker-best-practices
+    repo: unlu-sd2026/exercise-03-docker-best-practices
+    test_dir: exercise-03-docker-best-practices
+    type: docker
+    sheet_column: ejercicio-03
