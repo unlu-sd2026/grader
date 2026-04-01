@@ -171,11 +171,21 @@ def run_tests(fork_dir, test_dir, exercise_type):
 def get_sheet_service():
     if not GOOGLE_CREDENTIALS:
         return None
-    creds = Credentials.from_service_account_info(
-        json.loads(GOOGLE_CREDENTIALS),
-        scopes=["https://www.googleapis.com/auth/spreadsheets"],
-    )
-    return build("sheets", "v4", credentials=creds)
+    try:
+        data = json.loads(GOOGLE_CREDENTIALS)
+        if "client_email" not in data:
+            print(
+                "  Warning: GOOGLE_CREDENTIALS missing required fields, skipping Sheets"
+            )
+            return None
+        creds = Credentials.from_service_account_info(
+            data,
+            scopes=["https://www.googleapis.com/auth/spreadsheets"],
+        )
+        return build("sheets", "v4", credentials=creds)
+    except Exception as e:
+        print(f"  Warning: Could not init Google Sheets: {e}")
+        return None
 
 
 def col_letter(index):
