@@ -6,7 +6,7 @@ exercises:
     sheet_column: ejercicio-01
     deadline: "2026-04-30T23:59:00"
     late_days: 3
-    max_retries: 10
+    max_retries: 5
 
   - name: exercise-02-fastapi-docker
     repo: unlu-sd2026/exercise-02-fastapi-docker
@@ -15,7 +15,7 @@ exercises:
     sheet_column: ejercicio-02
     deadline: "2026-05-15T23:59:00"
     late_days: 3
-    max_retries: 10
+    max_retries: 5
 
   - name: exercise-03-docker-best-practices
     repo: unlu-sd2026/exercise-03-docker-best-practices
@@ -24,4 +24,4 @@ exercises:
     sheet_column: ejercicio-03
     deadline: "2026-06-01T23:59:00"
     late_days: 3
-    max_retries: 10
+    max_retries: 5
