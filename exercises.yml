@@ -4,7 +4,7 @@ exercises:
     test_dir: exercise-01-node-registry
     type: docker
     sheet_column: ejercicio-01
-    deadline: "2026-04-30T23:59:00"
+    deadline: "2026-04-11T02:59:00"
     late_days: 3
     max_retries: 5
 
