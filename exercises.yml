@@ -1,9 +1,18 @@
 exercises:
+  - name: exercise-01-node-registry
+    repo: unlu-sd2026/exercise-01-node-registry
+    test_dir: exercise-01-node-registry
+    type: docker
+    sheet_column: ejercicio-01
+    deadline: "2026-04-30T23:59:00"
+    late_days: 3
+    max_retries: 5
+
   - name: exercise-01-tcp-echo
     repo: unlu-sd2026/exercise-01-tcp-echo
     test_dir: exercise-01-tcp-echo
     type: python
-    sheet_column: ejercicio-01
+    sheet_column: ejercicio-01-tcp
     deadline: "2026-04-30T23:59:00"
     late_days: 3
     max_retries: 5
