@@ -1,9 +1,6 @@
 name: Grade Student Submissions
 
 on:
-  schedule:
-    - cron: "*/10 11-23 * * 1-5"
-    - cron: "*/10 0-2 * * 2-6"
   workflow_dispatch:
     inputs:
       exercise:
