@@ -468,6 +468,10 @@ def grade_fork(fork, exercise, sheet_service, fork_fingerprints):
         score = calculate_score(passed, total, exercise)
 
         print(f"    Result: {passed}/{total} ({score}%)")
+        print("    ── pytest output ──")
+        for line in output.splitlines():
+            print(f"    │ {line}")
+        print("    ── end output ──")
 
         # Report to Google Sheets
         report_to_sheet(
