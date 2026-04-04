@@ -148,22 +148,95 @@ def check_deadline(exercise, commit_date_str):
     return "closed"
 
 
+# ── Docker Compose lifecycle ──
+def compose_up(fork_dir):
+    """Start docker compose stack in the student's repo. Returns True if successful."""
+    env_file = fork_dir / ".env"
+    env_example = fork_dir / ".env.example"
+    if not env_file.exists() and env_example.exists():
+        shutil.copy2(env_example, env_file)
+
+    result = subprocess.run(
+        ["docker", "compose", "up", "--build", "-d"],
+        capture_output=True,
+        text=True,
+        timeout=300,
+        cwd=str(fork_dir),
+    )
+    if result.returncode != 0:
+        print(f"    docker compose up failed:\n{result.stderr[-500:]}")
+        return False
+
+    # Wait for API to be ready
+    import time
+
+    for _ in range(40):
+        try:
+            resp = requests.get("http://localhost:8080/health", timeout=2)
+            if resp.status_code == 200:
+                print("    Docker Compose stack is ready")
+                return True
+        except (requests.ConnectionError, requests.Timeout):
+            pass
+        time.sleep(2)
+
+    print("    Warning: API not ready after 80s")
+    logs = subprocess.run(
+        ["docker", "compose", "logs", "--tail=30"],
+        capture_output=True,
+        text=True,
+        cwd=str(fork_dir),
+    )
+    print(f"    Compose logs:\n{logs.stdout[-500:]}")
+    return False
+
+
+def compose_down(fork_dir):
+    """Stop and clean up docker compose stack."""
+    subprocess.run(
+        ["docker", "compose", "down", "-v", "--remove-orphans"],
+        capture_output=True,
+        text=True,
+        timeout=30,
+        cwd=str(fork_dir),
+    )
+
+
 # ── Test runner ──
 def run_tests(fork_dir, test_dir, exercise_type):
     """Run pytest with verbose per-test results. Returns (passed, total, output, test_details)."""
     env = os.environ.copy()
     env["PYTHONPATH"] = str(fork_dir)
 
+    # For docker exercises, start the compose stack first
+    compose_started = False
+    if exercise_type in ("docker", "kubernetes"):
+        compose_file = fork_dir / "docker-compose.yml"
+        if compose_file.exists():
+            compose_started = compose_up(fork_dir)
+
     cmd = ["pytest", str(test_dir), "--tb=short", "-v", "--no-header"]
     cwd = str(fork_dir)
 
     try:
         result = subprocess.run(
-            cmd, capture_output=True, text=True, timeout=180, cwd=cwd, env=env
+            cmd,
+            capture_output=True,
+            text=True,
+            timeout=300,
+            cwd=cwd,
+            env=env,
         )
         output = result.stdout + result.stderr
     except subprocess.TimeoutExpired:
-        return 0, 0, "TIMEOUT: Tests took too long (>180s)", []
+        output = "TIMEOUT: Tests took too long (>300s)"
+        if compose_started:
+            compose_down(fork_dir)
+        return 0, 0, output, []
+
+    # Clean up compose
+    if compose_started:
+        compose_down(fork_dir)
 
     # Parse per-test results for partial scoring
     test_details = []
