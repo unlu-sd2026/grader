@@ -7,3 +7,84 @@ exercises:
     deadline: "2026-04-11T02:59:00"
     late_days: 3
     max_retries: 5
+
+  - name: exercise-02-dashboard
+    repo: unlu-sd2026/exercise-02-dashboard
+    test_dir: exercise-02-dashboard
+    type: docker
+    sheet_column: ejercicio-02
+    deadline: "2026-05-02T02:59:00"
+    late_days: 3
+    max_retries: 5
+
+  - name: exercise-03-rabbitmq
+    repo: unlu-sd2026/exercise-03-rabbitmq
+    test_dir: exercise-03-rabbitmq
+    type: docker
+    sheet_column: ejercicio-03
+    deadline: "2026-05-16T02:59:00"
+    late_days: 3
+    max_retries: 5
+
+  - name: exercise-04-kubernetes
+    repo: unlu-sd2026/exercise-04-kubernetes
+    test_dir: exercise-04-kubernetes
+    type: kubernetes
+    sheet_column: ejercicio-04
+    deadline: "2026-06-02T02:59:00"
+    late_days: 3
+    max_retries: 5
+
+  - name: exercise-05-observability
+    repo: unlu-sd2026/exercise-05-observability
+    test_dir: exercise-05-observability
+    type: docker
+    sheet_column: ejercicio-05
+    deadline: "2026-06-16T02:59:00"
+    late_days: 3
+    max_retries: 5
+
+  - name: exercise-06-cicd
+    repo: unlu-sd2026/exercise-06-cicd
+    test_dir: exercise-06-cicd
+    type: python
+    sheet_column: ejercicio-06
+    deadline: "2026-06-23T02:59:00"
+    late_days: 3
+    max_retries: 5
+
+  - name: exercise-07-hpa
+    repo: unlu-sd2026/exercise-07-hpa
+    test_dir: exercise-07-hpa
+    type: kubernetes
+    sheet_column: ejercicio-07
+    deadline: "2026-07-02T02:59:00"
+    late_days: 3
+    max_retries: 5
+
+  - name: exercise-08-grpc
+    repo: unlu-sd2026/exercise-08-grpc
+    test_dir: exercise-08-grpc
+    type: docker
+    sheet_column: ejercicio-08
+    deadline: "2026-07-16T02:59:00"
+    late_days: 3
+    max_retries: 5
+
+  - name: exercise-09-leader-election
+    repo: unlu-sd2026/exercise-09-leader-election
+    test_dir: exercise-09-leader-election
+    type: docker
+    sheet_column: ejercicio-09
+    deadline: "2026-08-02T02:59:00"
+    late_days: 3
+    max_retries: 5
+
+  - name: exercise-10-gke
+    repo: unlu-sd2026/exercise-10-gke
+    test_dir: exercise-10-gke
+    type: kubernetes
+    sheet_column: ejercicio-10
+    deadline: "2026-08-16T02:59:00"
+    late_days: 3
+    max_retries: 5
