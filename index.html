@@ -1,209 +1,438 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="es">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Leaderboard — SD 2026</title>
-    <style>
-        * { margin: 0; padding: 0; box-sizing: border-box; }
-        body {
-            font-family: 'Inter', -apple-system, sans-serif;
-            background: #0d1117;
-            color: #c9d1d9;
-            padding: 2rem;
-        }
-        h1 {
-            color: #58a6ff;
-            font-size: 1.8rem;
-            margin-bottom: 0.3rem;
-        }
-        .subtitle {
-            color: #8b949e;
-            font-size: 0.9rem;
-            margin-bottom: 2rem;
-        }
-        table {
-            width: 100%;
-            border-collapse: collapse;
-            background: #161b22;
-            border-radius: 8px;
-            overflow: hidden;
-        }
-        th {
-            background: #21262d;
-            padding: 12px 16px;
-            text-align: left;
-            font-weight: 600;
-            color: #58a6ff;
-            font-size: 0.85rem;
-            text-transform: uppercase;
-        }
-        td {
-            padding: 10px 16px;
-            border-top: 1px solid #21262d;
-            font-size: 0.9rem;
-        }
-        tr:hover { background: #1c2128; }
-        .rank { width: 50px; text-align: center; color: #8b949e; }
-        .student { font-weight: 600; }
-        .avg { font-weight: 700; color: #f0f6fc; }
-        .pass { color: #3fb950; }
-        .fail { color: #f85149; }
-        .late { color: #d29922; }
-        .pending { color: #484f58; }
-        .footer {
-            margin-top: 1.5rem;
-            color: #484f58;
-            font-size: 0.8rem;
-        }
-    </style>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="robots" content="noindex">
+<title>Leaderboard — Sistemas Distribuidos 2026 · UNLu DCB</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Inter:ital,wght@0,400;0,500;0,600;0,700;0,800;1,400&display=swap" rel="stylesheet">
+<script>
+// Apply theme before paint (avoid flash). Default: follow OS.
+(function(){try{var s=localStorage.getItem('sd2026.grader.theme');
+var d=s?s==='dark':matchMedia('(prefers-color-scheme: dark)').matches;
+if(d)document.documentElement.setAttribute('data-theme','dark');}catch(e){}})();
+</script>
+<style>
+:root{
+  --navy:#1E3A5F; --dark-blue:#2C5282; --mid-blue:#3182CE; --light-blue:#EBF4FF;
+  --white:#FFFFFF; --page:#F4F7FB; --surface:#FFFFFF; --surface-2:#F1F5F9;
+  --surface-stripe:#F8FAFC;
+  --text:#1A2733; --text-muted:#5B6876; --border:#E2E8F0; --border-subtle:#EDF2F7;
+  --green:#2F855A; --green-bg:#E6F4EA; --red:#C53030; --red-bg:#FCE8E8;
+  --amber:#B7791F; --amber-bg:#FBF3E0; --pending:#A0AEC0;
+  --link:#2B6CB0;
+  --shadow:0 1px 3px rgba(16,42,67,.07),0 4px 18px rgba(16,42,67,.05);
+  --shadow-card:0 2px 8px rgba(16,42,67,.08),0 8px 24px rgba(16,42,67,.06);
+  --radius:14px; --font:'Inter',-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;
+}
+:root[data-theme="dark"]{
+  --light-blue:#1B2D44; --white:#E6EDF3; --page:#0D1117; --surface:#161B22;
+  --surface-2:#1C2230; --surface-stripe:#181F2A;
+  --text:#C9D4E0; --text-muted:#8B97A6; --border:#2A3340; --border-subtle:#222B38;
+  --green:#3FB950; --green-bg:#13351F; --red:#F85149; --red-bg:#3A1816;
+  --amber:#D29922; --amber-bg:#3A2E12; --pending:#4B5563;
+  --link:#6FB4F2;
+  --shadow:0 1px 3px rgba(0,0,0,.45),0 6px 22px rgba(0,0,0,.35);
+  --shadow-card:0 2px 8px rgba(0,0,0,.5),0 8px 28px rgba(0,0,0,.38);
+}
+*{margin:0;padding:0;box-sizing:border-box}
+html{scroll-behavior:smooth}
+body{font-family:var(--font);background:var(--page);color:var(--text);
+  line-height:1.55;-webkit-font-smoothing:antialiased;
+  transition:background-color .25s,color .25s}
+
+/* ── Header ── */
+.hdr{background:linear-gradient(135deg,var(--navy) 0%,var(--dark-blue) 100%);
+  color:#fff;border-bottom:3px solid var(--mid-blue);position:sticky;top:0;z-index:50;
+  box-shadow:0 2px 16px rgba(0,0,0,.28)}
+.hdr-in{max-width:1380px;margin:0 auto;padding:12px 28px;display:flex;align-items:center;gap:16px}
+.hdr img{height:46px;width:auto;filter:drop-shadow(0 1px 3px rgba(0,0,0,.3))}
+.hdr .ttl{flex:1;min-width:0}
+.hdr .ttl .inst{font-size:16px;font-weight:700;letter-spacing:.15px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.hdr .ttl .sub{font-size:12px;color:rgba(255,255,255,.65);font-weight:400;margin-top:1px}
+.hdr .course-pill{background:rgba(255,255,255,.18);color:#fff;padding:4px 13px;border-radius:999px;
+  font-size:11.5px;font-weight:700;white-space:nowrap;letter-spacing:.3px;border:1px solid rgba(255,255,255,.25)}
+.theme-btn{cursor:pointer;border:1px solid rgba(255,255,255,.3);
+  background:rgba(255,255,255,.1);color:#fff;border-radius:999px;padding:6px 14px;
+  font-family:inherit;font-size:12.5px;font-weight:600;display:inline-flex;gap:6px;align-items:center;
+  transition:background .15s,border-color .15s;flex-shrink:0}
+.theme-btn:hover{background:rgba(255,255,255,.2);border-color:rgba(255,255,255,.45)}
+:root[data-theme="dark"] .theme-btn .i-dark,:root:not([data-theme="dark"]) .theme-btn .i-light{display:none}
+
+/* ── Main wrap ── */
+.wrap{max-width:1380px;margin:0 auto;padding:28px 28px 40px}
+
+/* ── Page heading ── */
+.page-hd{margin-bottom:20px}
+h1.page{font-size:1.45rem;font-weight:800;letter-spacing:-.3px;margin-bottom:2px;display:flex;align-items:center;gap:8px}
+.page-sub{color:var(--text-muted);font-size:.85rem}
+
+/* ── Stat cards ── */
+.stats{display:grid;grid-template-columns:repeat(auto-fit,minmax(176px,1fr));gap:12px;margin-bottom:24px}
+.stat{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);
+  padding:16px 20px;box-shadow:var(--shadow);
+  transition:transform .15s,box-shadow .15s}
+.stat:hover{transform:translateY(-2px);box-shadow:var(--shadow-card)}
+.stat .k{font-size:.68rem;text-transform:uppercase;letter-spacing:.7px;color:var(--text-muted);font-weight:700}
+.stat .v{font-size:1.65rem;font-weight:800;margin-top:5px;color:var(--text);line-height:1.1}
+.stat .v small{font-size:.88rem;font-weight:500;color:var(--text-muted);display:block;margin-top:2px;
+  font-size:.78rem;font-weight:500}
+.stat.accent .v{color:var(--mid-blue)}
+.stat .stat-icon{font-size:1.3rem;margin-bottom:4px;opacity:.8}
+
+/* ── Controls ── */
+.controls{display:flex;flex-wrap:wrap;gap:10px;align-items:center;margin-bottom:12px}
+.search{flex:1;min-width:220px;position:relative}
+.search input{width:100%;padding:10px 14px 10px 38px;border:1px solid var(--border);
+  border-radius:10px;background:var(--surface);color:var(--text);font:inherit;font-size:.88rem;
+  transition:border-color .15s,box-shadow .15s}
+.search input:focus{outline:none;border-color:var(--mid-blue);box-shadow:0 0 0 3px rgba(49,130,206,.18)}
+.search input::placeholder{color:var(--text-muted)}
+.search svg{position:absolute;left:12px;top:50%;transform:translateY(-50%);opacity:.4;pointer-events:none}
+.seg{display:inline-flex;border:1px solid var(--border);border-radius:10px;overflow:hidden;background:var(--surface)}
+.seg button{border:none;border-right:1px solid var(--border-subtle);background:transparent;color:var(--text-muted);
+  font:inherit;font-size:.82rem;font-weight:600;padding:8px 14px;cursor:pointer;
+  transition:background .12s,color .12s}
+.seg button:last-child{border-right:none}
+.seg button.on{background:var(--mid-blue);color:#fff}
+.seg button:not(.on):hover{background:var(--surface-2);color:var(--text)}
+
+/* ── Table ── */
+.tbl-wrap{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);
+  overflow:auto;box-shadow:var(--shadow-card);-webkit-overflow-scrolling:touch}
+table{width:100%;border-collapse:collapse;font-size:.875rem;min-width:780px}
+thead th{position:sticky;top:0;z-index:10;background:var(--surface-2);color:var(--text-muted);
+  font-size:.68rem;text-transform:uppercase;letter-spacing:.55px;font-weight:700;
+  padding:11px 14px;text-align:left;white-space:nowrap;
+  border-bottom:1px solid var(--border)}
+/* Sticky rank + student columns on mobile */
+thead th:nth-child(1){position:sticky;left:0;z-index:20}
+thead th:nth-child(2){position:sticky;left:54px;z-index:20}
+/* Sticky cells must carry an explicit opaque background so scrolled columns
+   don't bleed underneath them. Match surface/stripe/hover explicitly. */
+tbody td:nth-child(1),tbody td:nth-child(2){position:sticky;z-index:5;background:var(--surface)}
+tbody td:nth-child(1){left:0}
+tbody td:nth-child(2){left:54px}
+tbody tr:nth-child(even) td:nth-child(1),
+tbody tr:nth-child(even) td:nth-child(2){background:var(--surface-stripe)}
+tbody tr:hover td:nth-child(1),
+tbody tr:hover td:nth-child(2){background:var(--surface-2) !important}
+thead th.sortable{cursor:pointer;user-select:none}
+thead th.sortable:hover{color:var(--mid-blue)}
+thead th .arr{opacity:.35;font-size:.65rem;margin-left:3px}
+thead th.sorted .arr{opacity:1;color:var(--mid-blue)}
+tbody td{padding:10px 14px;border-bottom:1px solid var(--border-subtle);vertical-align:middle;
+  transition:background .1s}
+tbody tr:last-child td{border-bottom:none}
+/* Alternating row stripe */
+tbody tr:nth-child(even) td{background:var(--surface-stripe)}
+tbody tr:hover td{background:var(--surface-2) !important}
+.c-rank{width:54px;text-align:center;color:var(--text-muted);font-weight:600;font-size:.82rem}
+.c-student{font-weight:600;white-space:nowrap;min-width:160px}
+.c-avg{font-weight:800;white-space:nowrap}
+
+/* ── GitHub avatar + handle ── */
+.gh-cell{display:flex;align-items:center;gap:9px}
+.gh-avatar{width:28px;height:28px;border-radius:50%;object-fit:cover;flex-shrink:0;
+  border:1.5px solid var(--border);
+  transition:opacity .2s,transform .15s}
+.gh-avatar:hover{transform:scale(1.12);border-color:var(--mid-blue)}
+/* Initials placeholder — same box as .gh-avatar, shown on 404 */
+.gh-fallback{display:inline-flex;align-items:center;justify-content:center;
+  width:28px;height:28px;border-radius:50%;flex-shrink:0;
+  background:var(--surface-2);border:1.5px solid var(--border);
+  font-size:11px;font-weight:700;color:var(--text-muted);
+  font-family:var(--font);letter-spacing:0;line-height:1;
+  user-select:none}
+.gh-name{display:flex;flex-direction:column;gap:1px}
+.gh-login{font-weight:600;color:var(--text);font-size:.875rem;line-height:1.2}
+.gh-at{font-size:.72rem;font-weight:500;color:var(--text-muted);letter-spacing:.1px}
+
+/* ── Progress bar ── */
+/* Width = cumulative course progress (total_pct / all exercises).
+   Single navy→blue gradient — the number in the cell carries the value;
+   colour-coding early-course low numbers as "danger" would be misleading. */
+.bar{height:5px;border-radius:4px;background:var(--border);overflow:hidden;margin-top:5px;width:80px}
+.bar i{display:block;height:100%;border-radius:4px;
+  background:linear-gradient(90deg,var(--navy),var(--mid-blue));
+  transition:width .3s ease}
+
+/* ── Exercise cells ── */
+.cell{white-space:nowrap;font-variant-numeric:tabular-nums}
+.cell .frac{font-size:.76rem;color:var(--text-muted);margin-left:2px}
+.s-pass{color:var(--green)} .s-fail{color:var(--red)} .s-late{color:var(--amber)} .s-pending{color:var(--pending)}
+.pill{display:inline-block;padding:1px 7px;border-radius:999px;font-size:.68rem;font-weight:700;letter-spacing:.2px}
+.pill.pass{background:var(--green-bg);color:var(--green)}
+.pill.late{background:var(--amber-bg);color:var(--amber)}
+.medal{font-size:1rem}
+
+/* ── Exercise column header ── */
+.ex-head{display:flex;flex-direction:column;gap:2px}
+.ex-head .lbl{font-weight:700;color:var(--text);font-size:.75rem;text-transform:none;letter-spacing:0}
+.ex-head .meta{font-size:.64rem;font-weight:500;color:var(--text-muted);text-transform:none;letter-spacing:0}
+.ex-head .rate{font-size:.64rem;font-weight:700}
+/* Overdue column: deadline passed, zero submissions */
+thead th.overdue{background:var(--amber-bg)}
+:root[data-theme="dark"] thead th.overdue{background:#2E2210}
+.overdue-badge{display:inline-block;padding:1px 5px;border-radius:999px;font-size:.62rem;
+  font-weight:700;background:var(--amber-bg);color:var(--amber);border:1px solid var(--amber);
+  text-transform:uppercase;letter-spacing:.3px}
+
+/* ── Empty / zero states ── */
+.empty{padding:56px 24px;text-align:center;color:var(--text-muted)}
+.empty .empty-icon{font-size:2.2rem;margin-bottom:10px;opacity:.5}
+.empty p{font-size:.9rem}
+
+/* ── Legend ── */
+.legend{margin-top:14px;color:var(--text-muted);font-size:.78rem;display:flex;gap:16px;flex-wrap:wrap;
+  align-items:center}
+.legend span{display:flex;align-items:center;gap:4px}
+
+/* ── Footer ── */
+footer{max-width:1380px;margin:20px auto 40px;padding:0 28px;color:var(--text-muted);font-size:.76rem;
+  display:flex;align-items:center;gap:8px}
+footer::before{content:'';display:block;height:1px;width:32px;background:var(--border)}
+
+/* ── Mobile ── */
+@media(max-width:640px){
+  .hdr .ttl .sub{display:none}
+  .wrap{padding:16px 14px 32px}
+  .stats{grid-template-columns:repeat(2,1fr);gap:10px}
+  .stat{padding:13px 15px}
+  .stat .v{font-size:1.4rem}
+  .seg button{padding:8px 10px;font-size:.78rem}
+  .legend{gap:10px}
+}
+</style>
 </head>
 <body>
-    <h1>🏆 Leaderboard — Sistemas Distribuidos 2026</h1>
-    <p class="subtitle">Updated: 2026-05-19 23:36 UTC · Auto-generated by the grading system</p>
+<header class="hdr"><div class="hdr-in">
+  <img src="assets/unlu_escudo.png" alt="UNLu">
+  <div class="ttl">
+    <div class="inst">Universidad Nacional de Luján</div>
+    <div class="sub">Departamento de Ciencias Básicas · Sistemas Distribuidos y Programación Paralela</div>
+  </div>
+  <span class="course-pill">SD 2026</span>
+  <img src="assets/logo_dcb.png" alt="DCB">
+  <button class="theme-btn" id="themeBtn" type="button" aria-label="Cambiar tema">
+    <span class="i-dark">☀ Claro</span><span class="i-light">☾ Oscuro</span>
+  </button>
+</div></header>
 
-    <table>
-        <thead>
-            <tr>
-                <th>#</th>
-                <th>Student</th>
-                <th>Average</th>
-                <th>ejercicio-01</th><th>ejercicio-02</th><th>ejercicio-03</th><th>ejercicio-04</th><th>ejercicio-05</th><th>ejercicio-06</th><th>ejercicio-07</th><th>ejercicio-08</th><th>ejercicio-09</th><th>ejercicio-10</th>
-            </tr>
-        </thead>
-        <tbody>
-            
-        <tr>
-            <td class="rank">1</td>
-            <td class="student">🥇 MattZander24</td>
-            <td class="avg">70%</td>
-            <td class="pass">✅ 44/44 (100%)</td><td class="pass">✅ 8/8 (100%)</td><td class="pass">✅ 12/12 (100%)</td><td class="pending">⏳</td><td class="pass">✅ 9/9 (100%)</td><td class="pass">✅ 6/6 (100%)</td><td class="pass">✅ 6/6 (100%)</td><td class="pass">✅ 10/10 (100%)</td><td class="pending">⏳</td><td class="pending">⏳</td>
-        </tr>
-        <tr>
-            <td class="rank">2</td>
-            <td class="student">🥈 Valentin190306</td>
-            <td class="avg">60%</td>
-            <td class="pass">✅ 44/44 (100%)</td><td class="late">⏰ 7/8 (88%)</td><td class="pass">✅ 12/12 (100%)</td><td class="pending">⏳</td><td class="pass">✅ 9/9 (100%)</td><td class="pass">✅ 6/6 (100%)</td><td class="fail">❌ 5/6 (83%)</td><td class="fail">❌ 3/10 (30%)</td><td class="pending">⏳</td><td class="pending">⏳</td>
-        </tr>
-        <tr>
-            <td class="rank">3</td>
-            <td class="student">🥉 abrilbabino</td>
-            <td class="avg">50%</td>
-            <td class="pass">✅ 44/44 (100%)</td><td class="pass">✅ 8/8 (100%)</td><td class="pass">✅ 12/12 (100%)</td><td class="pending">⏳</td><td class="pass">✅ 9/9 (100%)</td><td class="pass">✅ 6/6 (100%)</td><td class="pending">⏳</td><td class="pending">⏳</td><td class="pending">⏳</td><td class="pending">⏳</td>
-        </tr>
-        <tr>
-            <td class="rank">4</td>
-            <td class="student">RenzRob</td>
-            <td class="avg">50%</td>
-            <td class="pass">✅ 44/44 (100%)</td><td class="pass">✅ 8/8 (100%)</td><td class="pass">✅ 12/12 (100%)</td><td class="pending">⏳</td><td class="pass">✅ 9/9 (100%)</td><td class="pass">✅ 6/6 (100%)</td><td class="pending">⏳</td><td class="pending">⏳</td><td class="pending">⏳</td><td class="pending">⏳</td>
-        </tr>
-        <tr>
-            <td class="rank">5</td>
-            <td class="student">tobiasavila04</td>
-            <td class="avg">50%</td>
-            <td class="pass">✅ 44/44 (100%)</td><td class="pass">✅ 8/8 (100%)</td><td class="pass">✅ 12/12 (100%)</td><td class="pending">⏳</td><td class="pass">✅ 9/9 (100%)</td><td class="pass">✅ 6/6 (100%)</td><td class="pending">⏳</td><td class="pending">⏳</td><td class="pending">⏳</td><td class="pending">⏳</td>
-        </tr>
-        <tr>
-            <td class="rank">6</td>
-            <td class="student">Ian-Ott</td>
-            <td class="avg">50%</td>
-            <td class="pass">✅ 44/44 (100%)</td><td class="pass">✅ 8/8 (100%)</td><td class="pass">✅ 12/12 (100%)</td><td class="pending">⏳</td><td class="pass">✅ 9/9 (100%)</td><td class="pass">✅ 6/6 (100%)</td><td class="pending">⏳</td><td class="pending">⏳</td><td class="pending">⏳</td><td class="pending">⏳</td>
-        </tr>
-        <tr>
-            <td class="rank">7</td>
-            <td class="student">Naiara700</td>
-            <td class="avg">50%</td>
-            <td class="pass">✅ 44/44 (100%)</td><td class="pass">✅ 8/8 (100%)</td><td class="pass">✅ 12/12 (100%)</td><td class="pending">⏳</td><td class="pass">✅ 9/9 (100%)</td><td class="pass">✅ 6/6 (100%)</td><td class="pending">⏳</td><td class="pending">⏳</td><td class="pending">⏳</td><td class="pending">⏳</td>
-        </tr>
-        <tr>
-            <td class="rank">8</td>
-            <td class="student">GonzaEC</td>
-            <td class="avg">50%</td>
-            <td class="pass">✅ 44/44 (100%)</td><td class="pass">✅ 8/8 (100%)</td><td class="pass">✅ 12/12 (100%)</td><td class="pending">⏳</td><td class="pass">✅ 9/9 (100%)</td><td class="pass">✅ 6/6 (100%)</td><td class="pending">⏳</td><td class="pending">⏳</td><td class="pending">⏳</td><td class="pending">⏳</td>
-        </tr>
-        <tr>
-            <td class="rank">9</td>
-            <td class="student">GustavoContardi</td>
-            <td class="avg">50%</td>
-            <td class="pass">✅ 44/44 (100%)</td><td class="pass">✅ 8/8 (100%)</td><td class="pass">✅ 12/12 (100%)</td><td class="pending">⏳</td><td class="pass">✅ 9/9 (100%)</td><td class="pass">✅ 6/6 (100%)</td><td class="pending">⏳</td><td class="pending">⏳</td><td class="pending">⏳</td><td class="pending">⏳</td>
-        </tr>
-        <tr>
-            <td class="rank">10</td>
-            <td class="student">axelch1</td>
-            <td class="avg">50%</td>
-            <td class="pass">✅ 44/44 (100%)</td><td class="pass">✅ 8/8 (100%)</td><td class="pass">✅ 12/12 (100%)</td><td class="pending">⏳</td><td class="pass">✅ 9/9 (100%)</td><td class="pass">✅ 6/6 (100%)</td><td class="pending">⏳</td><td class="pending">⏳</td><td class="pending">⏳</td><td class="pending">⏳</td>
-        </tr>
-        <tr>
-            <td class="rank">11</td>
-            <td class="student">UlisesCasal</td>
-            <td class="avg">50%</td>
-            <td class="pass">✅ 44/44 (100%)</td><td class="pass">✅ 8/8 (100%)</td><td class="pass">✅ 12/12 (100%)</td><td class="pending">⏳</td><td class="pass">✅ 9/9 (100%)</td><td class="pass">✅ 6/6 (100%)</td><td class="pending">⏳</td><td class="pending">⏳</td><td class="pending">⏳</td><td class="pending">⏳</td>
-        </tr>
-        <tr>
-            <td class="rank">12</td>
-            <td class="student">EViani</td>
-            <td class="avg">48%</td>
-            <td class="pass">✅ 44/44 (100%)</td><td class="late">⏰ 6/8 (75%)</td><td class="pass">✅ 12/12 (100%)</td><td class="pending">⏳</td><td class="pass">✅ 9/9 (100%)</td><td class="pass">✅ 6/6 (100%)</td><td class="pending">⏳</td><td class="pending">⏳</td><td class="pending">⏳</td><td class="pending">⏳</td>
-        </tr>
-        <tr>
-            <td class="rank">13</td>
-            <td class="student">LautaroMarino17</td>
-            <td class="avg">46%</td>
-            <td class="pass">✅ 44/44 (100%)</td><td class="late">⏰ 7/8 (88%)</td><td class="late">⏰ 8/12 (67%)</td><td class="pending">⏳</td><td class="pass">✅ 9/9 (100%)</td><td class="pass">✅ 6/6 (100%)</td><td class="pending">⏳</td><td class="pending">⏳</td><td class="pending">⏳</td><td class="pending">⏳</td>
-        </tr>
-        <tr>
-            <td class="rank">14</td>
-            <td class="student">Mariano-Cavallo</td>
-            <td class="avg">46%</td>
-            <td class="late">⏰ 42/44 (95%)</td><td class="late">⏰ 6/8 (75%)</td><td class="pass">✅ 12/12 (100%)</td><td class="pending">⏳</td><td class="late">⏰ 8/9 (89%)</td><td class="pass">✅ 6/6 (100%)</td><td class="pending">⏳</td><td class="pending">⏳</td><td class="pending">⏳</td><td class="pending">⏳</td>
-        </tr>
-        <tr>
-            <td class="rank">15</td>
-            <td class="student">BautistaCacciatore</td>
-            <td class="avg">40%</td>
-            <td class="pass">✅ 44/44 (100%)</td><td class="pass">✅ 8/8 (100%)</td><td class="pass">✅ 12/12 (100%)</td><td class="pending">⏳</td><td class="pass">✅ 9/9 (100%)</td><td class="pending">⏳</td><td class="pending">⏳</td><td class="pending">⏳</td><td class="pending">⏳</td><td class="pending">⏳</td>
-        </tr>
-        <tr>
-            <td class="rank">16</td>
-            <td class="student">nicodigo</td>
-            <td class="avg">30%</td>
-            <td class="pass">✅ 44/44 (100%)</td><td class="pass">✅ 8/8 (100%)</td><td class="pass">✅ 12/12 (100%)</td><td class="pending">⏳</td><td class="pending">⏳</td><td class="pending">⏳</td><td class="pending">⏳</td><td class="pending">⏳</td><td class="pending">⏳</td><td class="pending">⏳</td>
-        </tr>
-        <tr>
-            <td class="rank">17</td>
-            <td class="student">Juanbrero</td>
-            <td class="avg">27%</td>
-            <td class="late">⏰ 42/44 (95%)</td><td class="late">⏰ 6/8 (75%)</td><td class="pass">✅ 12/12 (100%)</td><td class="pending">⏳</td><td class="pending">⏳</td><td class="pending">⏳</td><td class="pending">⏳</td><td class="pending">⏳</td><td class="pending">⏳</td><td class="pending">⏳</td>
-        </tr>
-        <tr>
-            <td class="rank">18</td>
-            <td class="student">valenaimale</td>
-            <td class="avg">20%</td>
-            <td class="late">⏰ 42/44 (95%)</td><td class="pass">✅ 8/8 (100%)</td><td class="pending">⏳</td><td class="pending">⏳</td><td class="pending">⏳</td><td class="pending">⏳</td><td class="pending">⏳</td><td class="pending">⏳</td><td class="pending">⏳</td><td class="pending">⏳</td>
-        </tr>
-        <tr>
-            <td class="rank">19</td>
-            <td class="student">MariaNazarenaGonzalez</td>
-            <td class="avg">18%</td>
-            <td class="pass">✅ 44/44 (100%)</td><td class="late">⏰ 6/8 (75%)</td><td class="pending">⏳</td><td class="pending">⏳</td><td class="pending">⏳</td><td class="pending">⏳</td><td class="pending">⏳</td><td class="pending">⏳</td><td class="pending">⏳</td><td class="pending">⏳</td>
-        </tr>
-        <tr>
-            <td class="rank">20</td>
-            <td class="student">Mat-JA</td>
-            <td class="avg">18%</td>
-            <td class="pass">✅ 44/44 (100%)</td><td class="late">⏰ 6/8 (75%)</td><td class="pending">⏳</td><td class="pending">⏳</td><td class="pending">⏳</td><td class="pending">⏳</td><td class="pending">⏳</td><td class="pending">⏳</td><td class="pending">⏳</td><td class="pending">⏳</td>
-        </tr>
-        <tr>
-            <td class="rank">21</td>
-            <td class="student">dpetrocelli</td>
-            <td class="avg">10%</td>
-            <td class="pass">✅ 44/44 (100%)</td><td class="pending">⏳</td><td class="pending">⏳</td><td class="pending">⏳</td><td class="pending">⏳</td><td class="pending">⏳</td><td class="pending">⏳</td><td class="pending">⏳</td><td class="pending">⏳</td><td class="pending">⏳</td>
-        </tr>
-        </tbody>
-    </table>
+<div class="wrap">
+  <div class="page-hd">
+    <h1 class="page"><span aria-hidden="true">🏆</span> Leaderboard — Sistemas Distribuidos 2026</h1>
+    <p class="page-sub" id="genStamp"></p>
+  </div>
 
-    <p class="footer">
-        ✅ Pass · ❌ Fail · ⏰ Late · ⏳ Pending
-    </p>
+  <div class="stats" id="stats"></div>
+
+  <div class="controls">
+    <div class="search">
+      <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><circle cx="11" cy="11" r="7"/><path d="m21 21-4.3-4.3"/></svg>
+      <input id="q" type="search" placeholder="Buscar por usuario de GitHub…" autocomplete="off">
+    </div>
+    <div class="seg" id="filter">
+      <button data-f="all" class="on">Todos</button>
+      <button data-f="passing">≥ 60% progreso</button>
+      <button data-f="risk">En riesgo</button>
+      <button data-f="inactive">Sin entregas</button>
+    </div>
+  </div>
+
+  <div class="tbl-wrap">
+    <table id="board"><thead id="thead"></thead><tbody id="tbody"></tbody></table>
+    <div class="empty" id="empty" hidden>
+      <div class="empty-icon">🔍</div>
+      <p>Sin resultados para el filtro actual.</p>
+    </div>
+  </div>
+
+  <div class="legend">
+    <span><b class="s-pass">✅</b> Aprobado</span>
+    <span><b class="s-late">⏰</b> Tarde</span>
+    <span><b class="s-fail">❌</b> No aprueba</span>
+    <span><b class="s-pending">⏳</b> Sin entregar</span>
+    <span>Los usuarios son los <b>GitHub handles</b> elegidos por cada alumno.</span>
+  </div>
+</div>
+
+<footer>Generado automáticamente · Sistema de corrección UNLu DCB · Cátedra Petrocelli</footer>
+
+<script id="data" type="application/json">{"generated": "2026-05-22 15:45 UTC", "stats": {"students": 21, "exercises": 10, "overall_avg": 42, "next_deadline": {"label": "09 · leader-election", "at": "2026-05-24 02:59 UTC"}, "per_exercise": [{"label": "01 · node-registry", "type": "docker", "deadline": "2026-04-11T02:59:00", "graded": 21, "passed": 21, "pass_rate": 100, "avg_pct": 99}, {"label": "02 · dashboard", "type": "docker", "deadline": "2026-04-15T02:59:00", "graded": 20, "passed": 20, "pass_rate": 100, "avg_pct": 93}, {"label": "03 · rabbitmq", "type": "docker", "deadline": "2026-04-22T02:59:00", "graded": 17, "passed": 17, "pass_rate": 100, "avg_pct": 98}, {"label": "04 · kubernetes", "type": "kubernetes", "deadline": "2026-04-29T02:59:00", "graded": 0, "passed": 0, "pass_rate": 0, "avg_pct": 0}, {"label": "05 · observability", "type": "docker", "deadline": "2026-05-02T02:59:00", "graded": 15, "passed": 15, "pass_rate": 100, "avg_pct": 99}, {"label": "06 · cicd", "type": "python", "deadline": "2026-05-09T02:59:00", "graded": 14, "passed": 14, "pass_rate": 100, "avg_pct": 100}, {"label": "07 · hpa", "type": "kubernetes", "deadline": "2026-05-13T02:59:00", "graded": 2, "passed": 1, "pass_rate": 50, "avg_pct": 92}, {"label": "08 · grpc", "type": "docker", "deadline": "2026-05-20T02:59:00", "graded": 2, "passed": 1, "pass_rate": 50, "avg_pct": 65}, {"label": "09 · leader-election", "type": "docker", "deadline": "2026-05-24T02:59:00", "graded": 0, "passed": 0, "pass_rate": 0, "avg_pct": 0}, {"label": "10 · gke", "type": "kubernetes", "deadline": "2026-05-30T02:59:00", "graded": 0, "passed": 0, "pass_rate": 0, "avg_pct": 0}]}, "exercises": [{"label": "01 · node-registry", "type": "docker", "deadline": "2026-04-11T02:59:00"}, {"label": "02 · dashboard", "type": "docker", "deadline": "2026-04-15T02:59:00"}, {"label": "03 · rabbitmq", "type": "docker", "deadline": "2026-04-22T02:59:00"}, {"label": "04 · kubernetes", "type": "kubernetes", "deadline": "2026-04-29T02:59:00"}, {"label": "05 · observability", "type": "docker", "deadline": "2026-05-02T02:59:00"}, {"label": "06 · cicd", "type": "python", "deadline": "2026-05-09T02:59:00"}, {"label": "07 · hpa", "type": "kubernetes", "deadline": "2026-05-13T02:59:00"}, {"label": "08 · grpc", "type": "docker", "deadline": "2026-05-20T02:59:00"}, {"label": "09 · leader-election", "type": "docker", "deadline": "2026-05-24T02:59:00"}, {"label": "10 · gke", "type": "kubernetes", "deadline": "2026-05-30T02:59:00"}], "students": [{"name": "MattZander24", "avg": 70, "done": 7, "cells": [{"passed": 44, "total": 44, "pct": 100, "status": "late", "at": "2026-05-04 15:10"}, {"passed": 8, "total": 8, "pct": 100, "status": "late", "at": "2026-05-10 17:53"}, {"passed": 12, "total": 12, "pct": 100, "status": "late", "at": "2026-05-10 19:02"}, {"passed": 0, "total": 0, "pct": 0, "status": "pending", "at": null}, {"passed": 9, "total": 9, "pct": 100, "status": "late", "at": "2026-05-17 18:04"}, {"passed": 6, "total": 6, "pct": 100, "status": "late", "at": "2026-05-17 18:40"}, {"passed": 6, "total": 6, "pct": 100, "status": "late", "at": "2026-05-18 14:39"}, {"passed": 10, "total": 10, "pct": 100, "status": "pass", "at": "2026-05-18 15:18"}, {"passed": 0, "total": 0, "pct": 0, "status": "pending", "at": null}, {"passed": 0, "total": 0, "pct": 0, "status": "pending", "at": null}]}, {"name": "Valentin190306", "avg": 60, "done": 5, "cells": [{"passed": 44, "total": 44, "pct": 100, "status": "late", "at": "2026-05-02 22:08"}, {"passed": 7, "total": 8, "pct": 88, "status": "late", "at": "2026-05-11 20:26"}, {"passed": 12, "total": 12, "pct": 100, "status": "late", "at": "2026-05-11 21:03"}, {"passed": 0, "total": 0, "pct": 0, "status": "pending", "at": null}, {"passed": 9, "total": 9, "pct": 100, "status": "late", "at": "2026-05-15 19:50"}, {"passed": 6, "total": 6, "pct": 100, "status": "late", "at": "2026-05-15 19:42"}, {"passed": 5, "total": 6, "pct": 83, "status": "fail", "at": "2026-05-18 14:39"}, {"passed": 3, "total": 10, "pct": 30, "status": "fail", "at": "2026-05-18 15:18"}, {"passed": 0, "total": 0, "pct": 0, "status": "pending", "at": null}, {"passed": 0, "total": 0, "pct": 0, "status": "pending", "at": null}]}, {"name": "abrilbabino", "avg": 50, "done": 5, "cells": [{"passed": 44, "total": 44, "pct": 100, "status": "late", "at": "2026-05-04 01:36"}, {"passed": 8, "total": 8, "pct": 100, "status": "late", "at": "2026-05-10 19:43"}, {"passed": 12, "total": 12, "pct": 100, "status": "late", "at": "2026-05-10 20:58"}, {"passed": 0, "total": 0, "pct": 0, "status": "pending", "at": null}, {"passed": 9, "total": 9, "pct": 100, "status": "late", "at": "2026-05-15 15:51"}, {"passed": 6, "total": 6, "pct": 100, "status": "late", "at": "2026-05-15 16:09"}, {"passed": 0, "total": 0, "pct": 0, "status": "pending", "at": null}, {"passed": 0, "total": 0, "pct": 0, "status": "pending", "at": null}, {"passed": 0, "total": 0, "pct": 0, "status": "pending", "at": null}, {"passed": 0, "total": 0, "pct": 0, "status": "pending", "at": null}]}, {"name": "RenzRob", "avg": 50, "done": 5, "cells": [{"passed": 44, "total": 44, "pct": 100, "status": "late", "at": "2026-05-01 17:33"}, {"passed": 8, "total": 8, "pct": 100, "status": "late", "at": "2026-05-12 04:29"}, {"passed": 12, "total": 12, "pct": 100, "status": "late", "at": "2026-05-15 13:17"}, {"passed": 0, "total": 0, "pct": 0, "status": "pending", "at": null}, {"passed": 9, "total": 9, "pct": 100, "status": "late", "at": "2026-05-15 13:47"}, {"passed": 6, "total": 6, "pct": 100, "status": "late", "at": "2026-05-15 14:06"}, {"passed": 0, "total": 0, "pct": 0, "status": "pending", "at": null}, {"passed": 0, "total": 0, "pct": 0, "status": "pending", "at": null}, {"passed": 0, "total": 0, "pct": 0, "status": "pending", "at": null}, {"passed": 0, "total": 0, "pct": 0, "status": "pending", "at": null}]}, {"name": "tobiasavila04", "avg": 50, "done": 5, "cells": [{"passed": 44, "total": 44, "pct": 100, "status": "late", "at": "2026-05-03 21:14"}, {"passed": 8, "total": 8, "pct": 100, "status": "late", "at": "2026-05-11 17:26"}, {"passed": 12, "total": 12, "pct": 100, "status": "late", "at": "2026-05-11 21:37"}, {"passed": 0, "total": 0, "pct": 0, "status": "pending", "at": null}, {"passed": 9, "total": 9, "pct": 100, "status": "late", "at": "2026-05-17 20:34"}, {"passed": 6, "total": 6, "pct": 100, "status": "late", "at": "2026-05-17 20:48"}, {"passed": 0, "total": 0, "pct": 0, "status": "pending", "at": null}, {"passed": 0, "total": 0, "pct": 0, "status": "pending", "at": null}, {"passed": 0, "total": 0, "pct": 0, "status": "pending", "at": null}, {"passed": 0, "total": 0, "pct": 0, "status": "pending", "at": null}]}, {"name": "Ian-Ott", "avg": 50, "done": 5, "cells": [{"passed": 44, "total": 44, "pct": 100, "status": "late", "at": "2026-05-06 23:57"}, {"passed": 8, "total": 8, "pct": 100, "status": "late", "at": "2026-05-11 23:42"}, {"passed": 12, "total": 12, "pct": 100, "status": "late", "at": "2026-05-11 23:32"}, {"passed": 0, "total": 0, "pct": 0, "status": "pending", "at": null}, {"passed": 9, "total": 9, "pct": 100, "status": "late", "at": "2026-05-18 16:39"}, {"passed": 6, "total": 6, "pct": 100, "status": "late", "at": "2026-05-18 17:01"}, {"passed": 0, "total": 0, "pct": 0, "status": "pending", "at": null}, {"passed": 0, "total": 0, "pct": 0, "status": "pending", "at": null}, {"passed": 0, "total": 0, "pct": 0, "status": "pending", "at": null}, {"passed": 0, "total": 0, "pct": 0, "status": "pending", "at": null}]}, {"name": "Naiara700", "avg": 50, "done": 5, "cells": [{"passed": 44, "total": 44, "pct": 100, "status": "late", "at": "2026-05-04 02:25"}, {"passed": 8, "total": 8, "pct": 100, "status": "late", "at": "2026-05-12 02:30"}, {"passed": 12, "total": 12, "pct": 100, "status": "late", "at": "2026-05-12 14:11"}, {"passed": 0, "total": 0, "pct": 0, "status": "pending", "at": null}, {"passed": 9, "total": 9, "pct": 100, "status": "late", "at": "2026-05-15 19:45"}, {"passed": 6, "total": 6, "pct": 100, "status": "late", "at": "2026-05-15 20:39"}, {"passed": 0, "total": 0, "pct": 0, "status": "pending", "at": null}, {"passed": 0, "total": 0, "pct": 0, "status": "pending", "at": null}, {"passed": 0, "total": 0, "pct": 0, "status": "pending", "at": null}, {"passed": 0, "total": 0, "pct": 0, "status": "pending", "at": null}]}, {"name": "GonzaEC", "avg": 50, "done": 5, "cells": [{"passed": 44, "total": 44, "pct": 100, "status": "late", "at": "2026-05-04 02:21"}, {"passed": 8, "total": 8, "pct": 100, "status": "late", "at": "2026-05-11 23:06"}, {"passed": 12, "total": 12, "pct": 100, "status": "late", "at": "2026-05-11 23:49"}, {"passed": 0, "total": 0, "pct": 0, "status": "pending", "at": null}, {"passed": 9, "total": 9, "pct": 100, "status": "late", "at": "2026-05-19 04:58"}, {"passed": 6, "total": 6, "pct": 100, "status": "late", "at": "2026-05-19 05:31"}, {"passed": 0, "total": 0, "pct": 0, "status": "pending", "at": null}, {"passed": 0, "total": 0, "pct": 0, "status": "pending", "at": null}, {"passed": 0, "total": 0, "pct": 0, "status": "pending", "at": null}, {"passed": 0, "total": 0, "pct": 0, "status": "pending", "at": null}]}, {"name": "GustavoContardi", "avg": 50, "done": 5, "cells": [{"passed": 44, "total": 44, "pct": 100, "status": "late", "at": "2026-05-04 03:06"}, {"passed": 8, "total": 8, "pct": 100, "status": "late", "at": "2026-05-10 15:51"}, {"passed": 12, "total": 12, "pct": 100, "status": "late", "at": "2026-05-11 02:49"}, {"passed": 0, "total": 0, "pct": 0, "status": "pending", "at": null}, {"passed": 9, "total": 9, "pct": 100, "status": "late", "at": "2026-05-16 14:59"}, {"passed": 6, "total": 6, "pct": 100, "status": "late", "at": "2026-05-16 15:19"}, {"passed": 0, "total": 0, "pct": 0, "status": "pending", "at": null}, {"passed": 0, "total": 0, "pct": 0, "status": "pending", "at": null}, {"passed": 0, "total": 0, "pct": 0, "status": "pending", "at": null}, {"passed": 0, "total": 0, "pct": 0, "status": "pending", "at": null}]}, {"name": "axelch1", "avg": 50, "done": 5, "cells": [{"passed": 44, "total": 44, "pct": 100, "status": "late", "at": "2026-05-05 16:11"}, {"passed": 8, "total": 8, "pct": 100, "status": "late", "at": "2026-05-13 00:53"}, {"passed": 12, "total": 12, "pct": 100, "status": "late", "at": "2026-05-13 01:15"}, {"passed": 0, "total": 0, "pct": 0, "status": "pending", "at": null}, {"passed": 9, "total": 9, "pct": 100, "status": "late", "at": "2026-05-15 20:32"}, {"passed": 6, "total": 6, "pct": 100, "status": "late", "at": "2026-05-15 20:42"}, {"passed": 0, "total": 0, "pct": 0, "status": "pending", "at": null}, {"passed": 0, "total": 0, "pct": 0, "status": "pending", "at": null}, {"passed": 0, "total": 0, "pct": 0, "status": "pending", "at": null}, {"passed": 0, "total": 0, "pct": 0, "status": "pending", "at": null}]}, {"name": "UlisesCasal", "avg": 50, "done": 5, "cells": [{"passed": 44, "total": 44, "pct": 100, "status": "late", "at": "2026-05-07 18:54"}, {"passed": 8, "total": 8, "pct": 100, "status": "late", "at": "2026-05-15 15:42"}, {"passed": 12, "total": 12, "pct": 100, "status": "late", "at": "2026-05-16 14:50"}, {"passed": 0, "total": 0, "pct": 0, "status": "pending", "at": null}, {"passed": 9, "total": 9, "pct": 100, "status": "late", "at": "2026-05-18 21:35"}, {"passed": 6, "total": 6, "pct": 100, "status": "late", "at": "2026-05-18 21:42"}, {"passed": 0, "total": 0, "pct": 0, "status": "pending", "at": null}, {"passed": 0, "total": 0, "pct": 0, "status": "pending", "at": null}, {"passed": 0, "total": 0, "pct": 0, "status": "pending", "at": null}, {"passed": 0, "total": 0, "pct": 0, "status": "pending", "at": null}]}, {"name": "EViani", "avg": 48, "done": 5, "cells": [{"passed": 44, "total": 44, "pct": 100, "status": "late", "at": "2026-05-04 04:56"}, {"passed": 6, "total": 8, "pct": 75, "status": "late", "at": "2026-05-09 19:32"}, {"passed": 12, "total": 12, "pct": 100, "status": "late", "at": "2026-05-10 22:18"}, {"passed": 0, "total": 0, "pct": 0, "status": "pending", "at": null}, {"passed": 9, "total": 9, "pct": 100, "status": "late", "at": "2026-05-19 02:10"}, {"passed": 6, "total": 6, "pct": 100, "status": "late", "at": "2026-05-19 05:31"}, {"passed": 0, "total": 0, "pct": 0, "status": "pending", "at": null}, {"passed": 0, "total": 0, "pct": 0, "status": "pending", "at": null}, {"passed": 0, "total": 0, "pct": 0, "status": "pending", "at": null}, {"passed": 0, "total": 0, "pct": 0, "status": "pending", "at": null}]}, {"name": "LautaroMarino17", "avg": 46, "done": 5, "cells": [{"passed": 44, "total": 44, "pct": 100, "status": "late", "at": "2026-05-04 20:01"}, {"passed": 7, "total": 8, "pct": 88, "status": "late", "at": "2026-05-16 02:22"}, {"passed": 8, "total": 12, "pct": 67, "status": "late", "at": "2026-05-16 14:50"}, {"passed": 0, "total": 0, "pct": 0, "status": "pending", "at": null}, {"passed": 9, "total": 9, "pct": 100, "status": "late", "at": "2026-05-18 15:12"}, {"passed": 6, "total": 6, "pct": 100, "status": "late", "at": "2026-05-17 18:28"}, {"passed": 0, "total": 0, "pct": 0, "status": "pending", "at": null}, {"passed": 0, "total": 0, "pct": 0, "status": "pending", "at": null}, {"passed": 0, "total": 0, "pct": 0, "status": "pending", "at": null}, {"passed": 0, "total": 0, "pct": 0, "status": "pending", "at": null}]}, {"name": "Mariano-Cavallo", "avg": 46, "done": 5, "cells": [{"passed": 42, "total": 44, "pct": 95, "status": "late", "at": "2026-05-04 20:01"}, {"passed": 6, "total": 8, "pct": 75, "status": "late", "at": "2026-05-15 15:32"}, {"passed": 12, "total": 12, "pct": 100, "status": "late", "at": "2026-05-12 23:48"}, {"passed": 0, "total": 0, "pct": 0, "status": "pending", "at": null}, {"passed": 8, "total": 9, "pct": 89, "status": "late", "at": "2026-05-18 21:36"}, {"passed": 6, "total": 6, "pct": 100, "status": "late", "at": "2026-05-18 16:59"}, {"passed": 0, "total": 0, "pct": 0, "status": "pending", "at": null}, {"passed": 0, "total": 0, "pct": 0, "status": "pending", "at": null}, {"passed": 0, "total": 0, "pct": 0, "status": "pending", "at": null}, {"passed": 0, "total": 0, "pct": 0, "status": "pending", "at": null}]}, {"name": "BautistaCacciatore", "avg": 40, "done": 4, "cells": [{"passed": 44, "total": 44, "pct": 100, "status": "late", "at": "2026-05-05 16:11"}, {"passed": 8, "total": 8, "pct": 100, "status": "late", "at": "2026-05-12 21:01"}, {"passed": 12, "total": 12, "pct": 100, "status": "late", "at": "2026-05-12 23:49"}, {"passed": 0, "total": 0, "pct": 0, "status": "pending", "at": null}, {"passed": 9, "total": 9, "pct": 100, "status": "late", "at": "2026-05-19 20:32"}, {"passed": 0, "total": 0, "pct": 0, "status": "pending", "at": null}, {"passed": 0, "total": 0, "pct": 0, "status": "pending", "at": null}, {"passed": 0, "total": 0, "pct": 0, "status": "pending", "at": null}, {"passed": 0, "total": 0, "pct": 0, "status": "pending", "at": null}, {"passed": 0, "total": 0, "pct": 0, "status": "pending", "at": null}]}, {"name": "nicodigo", "avg": 30, "done": 3, "cells": [{"passed": 44, "total": 44, "pct": 100, "status": "late", "at": "2026-05-05 14:38"}, {"passed": 8, "total": 8, "pct": 100, "status": "late", "at": "2026-05-12 18:28"}, {"passed": 12, "total": 12, "pct": 100, "status": "late", "at": "2026-05-12 21:46"}, {"passed": 0, "total": 0, "pct": 0, "status": "pending", "at": null}, {"passed": 0, "total": 0, "pct": 0, "status": "pending", "at": null}, {"passed": 0, "total": 0, "pct": 0, "status": "pending", "at": null}, {"passed": 0, "total": 0, "pct": 0, "status": "pending", "at": null}, {"passed": 0, "total": 0, "pct": 0, "status": "pending", "at": null}, {"passed": 0, "total": 0, "pct": 0, "status": "pending", "at": null}, {"passed": 0, "total": 0, "pct": 0, "status": "pending", "at": null}]}, {"name": "Juanbrero", "avg": 27, "done": 3, "cells": [{"passed": 42, "total": 44, "pct": 95, "status": "late", "at": "2026-04-30 22:29"}, {"passed": 6, "total": 8, "pct": 75, "status": "late", "at": "2026-05-09 19:39"}, {"passed": 12, "total": 12, "pct": 100, "status": "late", "at": "2026-05-14 21:41"}, {"passed": 0, "total": 0, "pct": 0, "status": "pending", "at": null}, {"passed": 0, "total": 0, "pct": 0, "status": "pending", "at": null}, {"passed": 0, "total": 0, "pct": 0, "status": "pending", "at": null}, {"passed": 0, "total": 0, "pct": 0, "status": "pending", "at": null}, {"passed": 0, "total": 0, "pct": 0, "status": "pending", "at": null}, {"passed": 0, "total": 0, "pct": 0, "status": "pending", "at": null}, {"passed": 0, "total": 0, "pct": 0, "status": "pending", "at": null}]}, {"name": "valenaimale", "avg": 20, "done": 2, "cells": [{"passed": 42, "total": 44, "pct": 95, "status": "late", "at": "2026-05-05 14:38"}, {"passed": 8, "total": 8, "pct": 100, "status": "late", "at": "2026-05-19 23:36"}, {"passed": 0, "total": 0, "pct": 0, "status": "pending", "at": null}, {"passed": 0, "total": 0, "pct": 0, "status": "pending", "at": null}, {"passed": 0, "total": 0, "pct": 0, "status": "pending", "at": null}, {"passed": 0, "total": 0, "pct": 0, "status": "pending", "at": null}, {"passed": 0, "total": 0, "pct": 0, "status": "pending", "at": null}, {"passed": 0, "total": 0, "pct": 0, "status": "pending", "at": null}, {"passed": 0, "total": 0, "pct": 0, "status": "pending", "at": null}, {"passed": 0, "total": 0, "pct": 0, "status": "pending", "at": null}]}, {"name": "MariaNazarenaGonzalez", "avg": 18, "done": 2, "cells": [{"passed": 44, "total": 44, "pct": 100, "status": "late", "at": "2026-05-07 21:37"}, {"passed": 6, "total": 8, "pct": 75, "status": "late", "at": "2026-05-11 20:21"}, {"passed": 0, "total": 0, "pct": 0, "status": "pending", "at": null}, {"passed": 0, "total": 0, "pct": 0, "status": "pending", "at": null}, {"passed": 0, "total": 0, "pct": 0, "status": "pending", "at": null}, {"passed": 0, "total": 0, "pct": 0, "status": "pending", "at": null}, {"passed": 0, "total": 0, "pct": 0, "status": "pending", "at": null}, {"passed": 0, "total": 0, "pct": 0, "status": "pending", "at": null}, {"passed": 0, "total": 0, "pct": 0, "status": "pending", "at": null}, {"passed": 0, "total": 0, "pct": 0, "status": "pending", "at": null}]}, {"name": "Mat-JA", "avg": 18, "done": 2, "cells": [{"passed": 44, "total": 44, "pct": 100, "status": "late", "at": "2026-05-19 19:16"}, {"passed": 6, "total": 8, "pct": 75, "status": "late", "at": "2026-05-19 23:35"}, {"passed": 0, "total": 0, "pct": 0, "status": "pending", "at": null}, {"passed": 0, "total": 0, "pct": 0, "status": "pending", "at": null}, {"passed": 0, "total": 0, "pct": 0, "status": "pending", "at": null}, {"passed": 0, "total": 0, "pct": 0, "status": "pending", "at": null}, {"passed": 0, "total": 0, "pct": 0, "status": "pending", "at": null}, {"passed": 0, "total": 0, "pct": 0, "status": "pending", "at": null}, {"passed": 0, "total": 0, "pct": 0, "status": "pending", "at": null}, {"passed": 0, "total": 0, "pct": 0, "status": "pending", "at": null}]}, {"name": "dpetrocelli", "avg": 10, "done": 1, "cells": [{"passed": 44, "total": 44, "pct": 100, "status": "pass", "at": "2026-04-04 00:19"}, {"passed": 0, "total": 0, "pct": 0, "status": "pending", "at": null}, {"passed": 0, "total": 0, "pct": 0, "status": "pending", "at": null}, {"passed": 0, "total": 0, "pct": 0, "status": "pending", "at": null}, {"passed": 0, "total": 0, "pct": 0, "status": "pending", "at": null}, {"passed": 0, "total": 0, "pct": 0, "status": "pending", "at": null}, {"passed": 0, "total": 0, "pct": 0, "status": "pending", "at": null}, {"passed": 0, "total": 0, "pct": 0, "status": "pending", "at": null}, {"passed": 0, "total": 0, "pct": 0, "status": "pending", "at": null}, {"passed": 0, "total": 0, "pct": 0, "status": "pending", "at": null}]}]}</script>
+<script>
+const DATA = JSON.parse(document.getElementById('data').textContent);
+const $ = s => document.querySelector(s);
+
+// ── Constants declared first — avoid TDZ when render() fires immediately ──
+const TYPE_ICON = {docker:'🐳', kubernetes:'☸️', python:'🐍'};
+const state = {rows:[], q:'', filter:'all', sort:'avg', dir:-1};
+
+// ── Theme toggle ──
+$('#themeBtn').addEventListener('click', () => {
+  const dark = document.documentElement.getAttribute('data-theme') === 'dark';
+  if (dark){document.documentElement.removeAttribute('data-theme');localStorage.setItem('sd2026.grader.theme','light');}
+  else{document.documentElement.setAttribute('data-theme','dark');localStorage.setItem('sd2026.grader.theme','dark');}
+});
+
+// ── Empty state ──
+if (!DATA.students || !DATA.students.length){
+  $('#genStamp').textContent = 'Todavía no hay resultados cargados.';
+  $('.controls').style.display='none'; $('.tbl-wrap').style.display='none'; $('.legend').style.display='none';
+} else { render(); }
+
+function render(){
+  $('#genStamp').textContent = 'Actualizado: ' + DATA.generated;
+  renderStats();
+  renderHead();
+  state.rows = DATA.students.map((s,i)=>({...s, rank:i+1}));
+  apply();
+}
+
+// ── Stat cards ──
+function renderStats(){
+  const st = DATA.stats || {};
+  const cards = [
+    {k:'Alumnos', v:st.students ?? 0, icon:'👥'},
+    {k:'Ejercicios', v:st.exercises ?? 0, icon:'📋'},
+    {k:'Progreso medio', v:(st.overall_avg ?? 0)+'%', accent:true, icon:'📊'},
+  ];
+  if (st.next_deadline) cards.push({k:'Próxima entrega', v:st.next_deadline.label, sub:st.next_deadline.at, icon:'📅'});
+  // Hardest exercise (lowest pass rate among graded)
+  const graded = (st.per_exercise||[]).filter(e=>e.graded>0);
+  if (graded.length){
+    const hard = graded.reduce((a,b)=>b.pass_rate<a.pass_rate?b:a);
+    cards.push({k:'Más difícil', v:hard.label, sub:hard.pass_rate+'% aprueba', icon:'🎯'});
+  }
+  $('#stats').innerHTML = cards.map(c=>`<div class="stat ${c.accent?'accent':''}">
+    <div class="stat-icon" aria-hidden="true">${c.icon||''}</div>
+    <div class="k">${c.k}</div>
+    <div class="v">${c.v}${c.sub?`<small>${c.sub}</small>`:''}</div></div>`).join('');
+}
+
+// ── Table head (with per-exercise pass-rate + sortable) ──
+function renderHead(){
+  const ex = DATA.exercises||[];
+  const pe = (DATA.stats&&DATA.stats.per_exercise)||[];
+  let th = `<tr>
+    <th class="sortable" data-sort="rank"># <span class="arr">↕</span></th>
+    <th class="sortable" data-sort="name">Alumno <span class="arr">↕</span></th>
+    <th class="sortable sorted" data-sort="avg">Progreso <span class="arr">▼</span></th>`;
+  const now = Date.now();
+  ex.forEach((e,j)=>{
+    const r = pe[j]||{};
+    const dl = e.deadline ? new Date(e.deadline).toLocaleDateString('es-AR',{day:'2-digit',month:'2-digit'}) : '';
+    const noSub = !r.graded;
+    // overdue: deadline passed and nobody submitted yet
+    const overdue = e.deadline && new Date(e.deadline).getTime() < now && noSub;
+    th += `<th class="sortable${overdue?' overdue':''}" data-sort="ex${j}">
+      <div class="ex-head">
+        <span class="lbl">${TYPE_ICON[e.type]||''} ${e.label}</span>
+        <span class="meta">${dl?('Entrega '+dl+(noSub?'':' · ')):''}${overdue?'<span class="overdue-badge">vencido</span>':noSub?'sin entregas':(r.graded+' entregados')}</span>
+        ${r.graded?`<span class="rate ${r.pass_rate>=60?'s-pass':'s-fail'}">${r.pass_rate}% aprueba</span>`:'<span class="rate s-pending">—</span>'}
+      </div><span class="arr">↕</span></th>`;
+  });
+  $('#thead').innerHTML = th + '</tr>';
+  $('#thead').querySelectorAll('.sortable').forEach(h=>h.addEventListener('click',()=>sortBy(h.dataset.sort)));
+}
+
+$('#q').addEventListener('input', e=>{state.q=e.target.value.trim().toLowerCase(); apply();});
+$('#filter').addEventListener('click', e=>{
+  const b=e.target.closest('button'); if(!b)return;
+  $('#filter').querySelectorAll('button').forEach(x=>x.classList.remove('on'));
+  b.classList.add('on'); state.filter=b.dataset.f; apply();
+});
+
+function sortBy(key){
+  if(state.sort===key){state.dir*=-1;}
+  else{state.sort=key; state.dir = key==='name'?1:-1;}
+  apply();
+}
+
+function val(row,key){
+  if(key==='rank')return row.rank;
+  if(key==='name')return row.name.toLowerCase();
+  if(key==='avg')return row.avg;
+  if(key.startsWith('ex')){const j=+key.slice(2); const c=row.cells[j]||{}; return c.pct||0;}
+  return 0;
+}
+
+function apply(){
+  // "passing" / "risk" use exercises-passed ratio so filters are meaningful
+  // at any point in the course, regardless of the cumulative Progreso value.
+  const totalEx = (DATA.exercises||[]).length || 1;
+  let rows = state.rows.filter(r=>{
+    if(state.q && !r.name.toLowerCase().includes(state.q)) return false;
+    const passPct = r.done / totalEx * 100;
+    if(state.filter==='passing') return passPct >= 60;
+    if(state.filter==='risk') return r.done > 0 && passPct < 60;
+    if(state.filter==='inactive') return r.done===0;
+    return true;
+  });
+  const k=state.sort, d=state.dir;
+  rows.sort((a,b)=>{const x=val(a,k),y=val(b,k); return x<y?-1*d:x>y?1*d:0;});
+  // sort arrow indicator
+  $('#thead').querySelectorAll('th').forEach(h=>{
+    h.classList.toggle('sorted',h.dataset.sort===k);
+    const a=h.querySelector('.arr');
+    if(a){
+      if(h.dataset.sort===k){a.textContent=d===-1?'▼':'▲';}
+      else{a.textContent='↕';}
+    }
+  });
+  renderRows(rows);
+}
+
+function medal(rank){return rank===1?'🥇':rank===2?'🥈':rank===3?'🥉':'';}
+
+function cellHtml(c){
+  if(!c || c.status==='pending') return '<td class="cell s-pending" title="Sin entregar">⏳</td>';
+  const icon = c.status==='pass'?'✅':c.status==='late'?'⏰':'❌';
+  const late = c.status==='late'?' <span class="pill late">tarde</span>':'';
+  const title = c.at?`Entregado ${c.at}`:'';
+  return `<td class="cell s-${c.status}" title="${title}">${icon} ${c.pct}%<span class="frac">${c.passed}/${c.total}</span>${late}</td>`;
+}
+
+// Build student cell with GitHub avatar + handle.
+// On 404 the <img> is replaced by a same-size CSS circle showing the
+// first two characters of the login so the column layout never shifts.
+function avatarFallback(el, login){
+  const initials = login.slice(0,2).toUpperCase();
+  const span = document.createElement('span');
+  span.className = 'gh-fallback';
+  span.textContent = initials;
+  el.replaceWith(span);
+}
+function studentHtml(name){
+  const login = name; // name IS the GitHub handle
+  const avatarUrl = `https://github.com/${encodeURIComponent(login)}.png?size=40`;
+  return `<td class="c-student">
+    <div class="gh-cell">
+      <img class="gh-avatar" src="${avatarUrl}" alt="" loading="lazy"
+           onerror="avatarFallback(this,'${login.replace(/'/g,"\\'")}')">
+      <div class="gh-name">
+        <span class="gh-login">${login}</span>
+        <span class="gh-at">@${login}</span>
+      </div>
+    </div>
+  </td>`;
+}
+
+function renderRows(rows){
+  const tb=$('#tbody'), emp=$('#empty');
+  if(!rows.length){tb.innerHTML=''; emp.hidden=false; return;}
+  emp.hidden=true;
+  tb.innerHTML = rows.map(r=>{
+    const m=medal(r.rank);
+    const cells = (DATA.exercises||[]).map((_e,j)=>cellHtml(r.cells[j])).join('');
+    return `<tr>
+      <td class="c-rank">${m?`<span class="medal">${m}</span>`:r.rank}</td>
+      ${studentHtml(r.name)}
+      <td class="c-avg">${r.avg}%<div class="bar"><i style="width:${r.avg}%"></i></div></td>
+      ${cells}</tr>`;
+  }).join('');
+}
+</script>
 </body>
 </html>
