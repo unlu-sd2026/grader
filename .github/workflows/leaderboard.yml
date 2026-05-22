@@ -21,7 +21,7 @@ jobs:
         with:
           python-version: "3.11"
 
-      - run: pip install google-auth google-api-python-client
+      - run: pip install google-auth google-api-python-client pyyaml
 
       - name: Generate leaderboard
         env:

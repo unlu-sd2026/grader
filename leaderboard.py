@@ -1,24 +1,67 @@
 #!/usr/bin/env python3
-"""
-Generate a leaderboard HTML page from the Google Sheet results.
+"""Generate the SD 2026 leaderboard panel from the Google Sheet results.
 
-Can be run locally or as a GitHub Pages deployment.
-Usage: python leaderboard.py > docs/index.html
+Reads the `resultados` tab, enriches each submission with the exercise
+metadata declared in `exercises.yml` (deadlines, type), computes cohort
+statistics, and emits a single self-contained `docs/index.html`.
+
+The HTML embeds the data as JSON and ships a small vanilla-JS app that does
+search / filter / sort entirely in the browser — no backend, still a static
+GitHub Pages deploy.
+
+Usage: python leaderboard.py
 """
+
+from __future__ import annotations
 
 import json
 import os
 import re
+from dataclasses import dataclass, field
 from datetime import datetime, timezone
+from pathlib import Path
 
+import yaml
 from google.oauth2.service_account import Credentials
 from googleapiclient.discovery import build
 
 SHEET_ID = os.environ.get("SHEET_ID", "")
 GOOGLE_CREDENTIALS = os.environ.get("GOOGLE_CREDENTIALS", "")
+EXERCISES_YML = Path(__file__).parent / "exercises.yml"
+
+# Cell example: "✅ 11/11 (100%) LATE [2026-04-25 18:23]"
+_SCORE_RE = re.compile(r"(\d+)\s*/\s*(\d+)")
+_TS_RE = re.compile(r"\[(\d{4}-\d{2}-\d{2} \d{2}:\d{2})\]")
 
 
-def get_sheet_data():
+@dataclass
+class Exercise:
+    column: str
+    name: str
+    label: str
+    type: str
+    deadline: str | None
+
+
+@dataclass
+class Cell:
+    passed: int = 0
+    total: int = 0
+    pct: int = 0
+    status: str = "pending"  # pass | fail | late | pending
+    submitted_at: str | None = None
+
+
+@dataclass
+class Student:
+    name: str
+    avg: int = 0
+    done: int = 0  # exercises with a pass (incl. late)
+    cells: list[Cell] = field(default_factory=list)
+
+
+# ── Data sources ──────────────────────────────────────────────────────────
+def get_sheet_data() -> list[list[str]]:
     creds = Credentials.from_service_account_info(
         json.loads(GOOGLE_CREDENTIALS),
         scopes=["https://www.googleapis.com/auth/spreadsheets.readonly"],
@@ -33,200 +76,615 @@ def get_sheet_data():
     return result.get("values", [])
 
 
-def parse_score(cell):
-    """Parse a cell like '✅ 11/11 (100%) [2026-04-01 18:23]' into (passed, total, pct, status)."""
-    if not cell:
-        return 0, 0, 0, "pending"
+def load_exercises() -> dict[str, Exercise]:
+    """Map sheet_column -> Exercise metadata from exercises.yml."""
+    if not EXERCISES_YML.exists():
+        return {}
+    spec = yaml.safe_load(EXERCISES_YML.read_text())
+    out: dict[str, Exercise] = {}
+    for ex in spec.get("exercises", []):
+        col = ex.get("sheet_column")
+        if not col:
+            continue
+        # exercise-04-kubernetes -> "04 · kubernetes"
+        raw = ex.get("name", col)
+        m = re.match(r"exercise-(\d+)-(.+)", raw)
+        label = f"{m.group(1)} · {m.group(2)}" if m else raw
+        out[col] = Exercise(
+            column=col,
+            name=raw,
+            label=label,
+            type=ex.get("type", "docker"),
+            deadline=ex.get("deadline"),
+        )
+    return out
 
-    match = re.search(r"(\d+)/(\d+)", cell)
-    if not match:
-        return 0, 0, 0, "pending"
 
-    passed = int(match.group(1))
-    total = int(match.group(2))
-    pct = round((passed / total) * 100) if total > 0 else 0
-
-    if "\u2705" in cell or "✅" in cell:
-        status = "pass"
-    elif "LATE" in cell:
+# ── Parsing ───────────────────────────────────────────────────────────────
+def parse_cell(text: str) -> Cell:
+    if not text:
+        return Cell()
+    m = _SCORE_RE.search(text)
+    if not m:
+        return Cell()
+    passed, total = int(m.group(1)), int(m.group(2))
+    pct = round(passed / total * 100) if total else 0
+    if "LATE" in text:
         status = "late"
+    elif "✅" in text:
+        status = "pass"
     else:
         status = "fail"
+    ts = _TS_RE.search(text)
+    return Cell(passed, total, pct, status, ts.group(1) if ts else None)
 
-    return passed, total, pct, status
 
-
-def generate_html(data):
-    if not data or len(data) < 2:
-        return "<html><body><h1>No data yet</h1></body></html>"
-
+def build_students(
+    data: list[list[str]], exercises: dict[str, Exercise]
+) -> tuple[list[Student], list[Exercise]]:
     headers = data[0]
-    exercises = headers[1:]  # Skip 'student' column (and 'email' if present)
-    # Filter out non-exercise columns
-    exercise_cols = []
+    # Ordered list of (col_index, Exercise) for columns we recognise.
+    cols: list[tuple[int, Exercise]] = []
     for i, h in enumerate(headers):
+        h = (h or "").strip()
         if h.startswith("ejercicio"):
-            exercise_cols.append((i, h))
+            ex = exercises.get(h) or Exercise(
+                h, h, h.replace("ejercicio-", ""), "docker", None
+            )
+            cols.append((i, ex))
 
-    students = []
+    students: list[Student] = []
     for row in data[1:]:
         if not row or not row[0]:
             continue
-        student = row[0]
+        cells: list[Cell] = []
         total_pct = 0
-        cells = []
-        for col_idx, col_name in exercise_cols:
-            cell_val = row[col_idx] if col_idx < len(row) else ""
-            passed, total, pct, status = parse_score(cell_val)
-            total_pct += pct
-            cells.append(
-                {"passed": passed, "total": total, "pct": pct, "status": status}
-            )
+        done = 0
+        for col_idx, _ex in cols:
+            raw = row[col_idx] if col_idx < len(row) else ""
+            c = parse_cell(raw)
+            cells.append(c)
+            total_pct += c.pct
+            if c.status in ("pass", "late"):
+                done += 1
+        # avg is cumulative course progress (total_pct / all exercises),
+        # so 3×100% of 10 = 30% — labelled "Progreso" in the UI, not "Promedio"
+        avg = round(total_pct / len(cols)) if cols else 0
+        students.append(Student(name=row[0], avg=avg, done=done, cells=cells))
 
-        avg = round(total_pct / len(exercise_cols)) if exercise_cols else 0
-        students.append({"name": student, "avg": avg, "cells": cells})
-
-    # Sort by average score descending
-    students.sort(key=lambda s: s["avg"], reverse=True)
-
-    now = datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M UTC")
-
-    exercise_headers = "".join(f"<th>{e[1]}</th>" for e in exercise_cols)
-
-    rows_html = ""
-    for rank, s in enumerate(students, 1):
-        cells_html = ""
-        for c in s["cells"]:
-            if c["status"] == "pass":
-                cls = "pass"
-                icon = "✅"
-            elif c["status"] == "late":
-                cls = "late"
-                icon = "⏰"
-            elif c["status"] == "fail":
-                cls = "fail"
-                icon = "❌"
-            else:
-                cls = "pending"
-                icon = "⏳"
-
-            if c["total"] > 0:
-                cells_html += f'<td class="{cls}">{icon} {c["passed"]}/{c["total"]} ({c["pct"]}%)</td>'
-            else:
-                cells_html += f'<td class="{cls}">{icon}</td>'
-
-        medal = ""
-        if rank == 1:
-            medal = "🥇 "
-        elif rank == 2:
-            medal = "🥈 "
-        elif rank == 3:
-            medal = "🥉 "
-
-        rows_html += f"""
-        <tr>
-            <td class="rank">{rank}</td>
-            <td class="student">{medal}{s["name"]}</td>
-            <td class="avg">{s["avg"]}%</td>
-            {cells_html}
-        </tr>"""
-
-    return f"""<!DOCTYPE html>
-<html lang="en">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Leaderboard — SD 2026</title>
-    <style>
-        * {{ margin: 0; padding: 0; box-sizing: border-box; }}
-        body {{
-            font-family: 'Inter', -apple-system, sans-serif;
-            background: #0d1117;
-            color: #c9d1d9;
-            padding: 2rem;
-        }}
-        h1 {{
-            color: #58a6ff;
-            font-size: 1.8rem;
-            margin-bottom: 0.3rem;
-        }}
-        .subtitle {{
-            color: #8b949e;
-            font-size: 0.9rem;
-            margin-bottom: 2rem;
-        }}
-        table {{
-            width: 100%;
-            border-collapse: collapse;
-            background: #161b22;
-            border-radius: 8px;
-            overflow: hidden;
-        }}
-        th {{
-            background: #21262d;
-            padding: 12px 16px;
-            text-align: left;
-            font-weight: 600;
-            color: #58a6ff;
-            font-size: 0.85rem;
-            text-transform: uppercase;
-        }}
-        td {{
-            padding: 10px 16px;
-            border-top: 1px solid #21262d;
-            font-size: 0.9rem;
-        }}
-        tr:hover {{ background: #1c2128; }}
-        .rank {{ width: 50px; text-align: center; color: #8b949e; }}
-        .student {{ font-weight: 600; }}
-        .avg {{ font-weight: 700; color: #f0f6fc; }}
-        .pass {{ color: #3fb950; }}
-        .fail {{ color: #f85149; }}
-        .late {{ color: #d29922; }}
-        .pending {{ color: #484f58; }}
-        .footer {{
-            margin-top: 1.5rem;
-            color: #484f58;
-            font-size: 0.8rem;
-        }}
-    </style>
-</head>
-<body>
-    <h1>🏆 Leaderboard — Sistemas Distribuidos 2026</h1>
-    <p class="subtitle">Updated: {now} · Auto-generated by the grading system</p>
-
-    <table>
-        <thead>
-            <tr>
-                <th>#</th>
-                <th>Student</th>
-                <th>Average</th>
-                {exercise_headers}
-            </tr>
-        </thead>
-        <tbody>
-            {rows_html}
-        </tbody>
-    </table>
-
-    <p class="footer">
-        ✅ Pass · ❌ Fail · ⏰ Late · ⏳ Pending
-    </p>
-</body>
-</html>"""
+    students.sort(key=lambda s: (s.avg, s.done), reverse=True)
+    return students, [ex for _i, ex in cols]
 
 
-def main():
+def cohort_stats(students: list[Student], exercises: list[Exercise]) -> dict:
+    n = len(students)
+    per_ex = []
+    for j, ex in enumerate(exercises):
+        graded = [s.cells[j] for s in students if s.cells[j].status != "pending"]
+        passed = sum(1 for c in graded if c.status in ("pass", "late"))
+        avg_pct = round(sum(c.pct for c in graded) / len(graded)) if graded else 0
+        per_ex.append(
+            {
+                "label": ex.label,
+                "type": ex.type,
+                "deadline": ex.deadline,
+                "graded": len(graded),
+                "passed": passed,
+                "pass_rate": round(passed / len(graded) * 100) if graded else 0,
+                "avg_pct": avg_pct,
+            }
+        )
+    overall_avg = round(sum(s.avg for s in students) / n) if n else 0
+    # Next upcoming deadline
+    now = datetime.now(timezone.utc)
+    upcoming = None
+    for ex in exercises:
+        if not ex.deadline:
+            continue
+        try:
+            d = datetime.fromisoformat(ex.deadline).replace(tzinfo=timezone.utc)
+        except ValueError:
+            continue
+        if d >= now and (upcoming is None or d < upcoming[1]):
+            upcoming = (ex.label, d)
+    return {
+        "students": n,
+        "exercises": len(exercises),
+        "overall_avg": overall_avg,
+        "next_deadline": (
+            {"label": upcoming[0], "at": upcoming[1].strftime("%Y-%m-%d %H:%M UTC")}
+            if upcoming
+            else None
+        ),
+        "per_exercise": per_ex,
+    }
+
+
+# ── HTML ──────────────────────────────────────────────────────────────────
+def render_html(payload: dict) -> str:
+    data_json = json.dumps(payload, ensure_ascii=False)
+    return _TEMPLATE.replace("/*__DATA__*/", data_json)
+
+
+def main() -> None:
+    exercises_meta = load_exercises()
     data = get_sheet_data()
-    html = generate_html(data)
 
-    # Write to docs/index.html for GitHub Pages
-    from pathlib import Path
+    if not data or len(data) < 2:
+        payload = {"generated": "", "stats": {}, "exercises": [], "students": []}
+    else:
+        students, ex_order = build_students(data, exercises_meta)
+        payload = {
+            "generated": datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M UTC"),
+            "stats": cohort_stats(students, ex_order),
+            "exercises": [
+                {"label": e.label, "type": e.type, "deadline": e.deadline}
+                for e in ex_order
+            ],
+            "students": [
+                {
+                    "name": s.name,
+                    "avg": s.avg,
+                    "done": s.done,
+                    "cells": [
+                        {
+                            "passed": c.passed,
+                            "total": c.total,
+                            "pct": c.pct,
+                            "status": c.status,
+                            "at": c.submitted_at,
+                        }
+                        for c in s.cells
+                    ],
+                }
+                for s in students
+            ],
+        }
 
     docs_dir = Path(__file__).parent / "docs"
     docs_dir.mkdir(exist_ok=True)
-    (docs_dir / "index.html").write_text(html)
+    (docs_dir / "index.html").write_text(render_html(payload), encoding="utf-8")
     print(f"Leaderboard written to {docs_dir / 'index.html'}")
+
+
+_TEMPLATE = r"""<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="robots" content="noindex">
+<title>Leaderboard — Sistemas Distribuidos 2026 · UNLu DCB</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Inter:ital,wght@0,400;0,500;0,600;0,700;0,800;1,400&display=swap" rel="stylesheet">
+<script>
+// Apply theme before paint (avoid flash). Default: follow OS.
+(function(){try{var s=localStorage.getItem('sd2026.grader.theme');
+var d=s?s==='dark':matchMedia('(prefers-color-scheme: dark)').matches;
+if(d)document.documentElement.setAttribute('data-theme','dark');}catch(e){}})();
+</script>
+<style>
+:root{
+  --navy:#1E3A5F; --dark-blue:#2C5282; --mid-blue:#3182CE; --light-blue:#EBF4FF;
+  --white:#FFFFFF; --page:#F4F7FB; --surface:#FFFFFF; --surface-2:#F1F5F9;
+  --surface-stripe:#F8FAFC;
+  --text:#1A2733; --text-muted:#5B6876; --border:#E2E8F0; --border-subtle:#EDF2F7;
+  --green:#2F855A; --green-bg:#E6F4EA; --red:#C53030; --red-bg:#FCE8E8;
+  --amber:#B7791F; --amber-bg:#FBF3E0; --pending:#A0AEC0;
+  --link:#2B6CB0;
+  --shadow:0 1px 3px rgba(16,42,67,.07),0 4px 18px rgba(16,42,67,.05);
+  --shadow-card:0 2px 8px rgba(16,42,67,.08),0 8px 24px rgba(16,42,67,.06);
+  --radius:14px; --font:'Inter',-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;
+}
+:root[data-theme="dark"]{
+  --light-blue:#1B2D44; --white:#E6EDF3; --page:#0D1117; --surface:#161B22;
+  --surface-2:#1C2230; --surface-stripe:#181F2A;
+  --text:#C9D4E0; --text-muted:#8B97A6; --border:#2A3340; --border-subtle:#222B38;
+  --green:#3FB950; --green-bg:#13351F; --red:#F85149; --red-bg:#3A1816;
+  --amber:#D29922; --amber-bg:#3A2E12; --pending:#4B5563;
+  --link:#6FB4F2;
+  --shadow:0 1px 3px rgba(0,0,0,.45),0 6px 22px rgba(0,0,0,.35);
+  --shadow-card:0 2px 8px rgba(0,0,0,.5),0 8px 28px rgba(0,0,0,.38);
+}
+*{margin:0;padding:0;box-sizing:border-box}
+html{scroll-behavior:smooth}
+body{font-family:var(--font);background:var(--page);color:var(--text);
+  line-height:1.55;-webkit-font-smoothing:antialiased;
+  transition:background-color .25s,color .25s}
+
+/* ── Header ── */
+.hdr{background:linear-gradient(135deg,var(--navy) 0%,var(--dark-blue) 100%);
+  color:#fff;border-bottom:3px solid var(--mid-blue);position:sticky;top:0;z-index:50;
+  box-shadow:0 2px 16px rgba(0,0,0,.28)}
+.hdr-in{max-width:1380px;margin:0 auto;padding:12px 28px;display:flex;align-items:center;gap:16px}
+.hdr img{height:46px;width:auto;filter:drop-shadow(0 1px 3px rgba(0,0,0,.3))}
+.hdr .ttl{flex:1;min-width:0}
+.hdr .ttl .inst{font-size:16px;font-weight:700;letter-spacing:.15px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.hdr .ttl .sub{font-size:12px;color:rgba(255,255,255,.65);font-weight:400;margin-top:1px}
+.hdr .course-pill{background:rgba(255,255,255,.18);color:#fff;padding:4px 13px;border-radius:999px;
+  font-size:11.5px;font-weight:700;white-space:nowrap;letter-spacing:.3px;border:1px solid rgba(255,255,255,.25)}
+.theme-btn{cursor:pointer;border:1px solid rgba(255,255,255,.3);
+  background:rgba(255,255,255,.1);color:#fff;border-radius:999px;padding:6px 14px;
+  font-family:inherit;font-size:12.5px;font-weight:600;display:inline-flex;gap:6px;align-items:center;
+  transition:background .15s,border-color .15s;flex-shrink:0}
+.theme-btn:hover{background:rgba(255,255,255,.2);border-color:rgba(255,255,255,.45)}
+:root[data-theme="dark"] .theme-btn .i-dark,:root:not([data-theme="dark"]) .theme-btn .i-light{display:none}
+
+/* ── Main wrap ── */
+.wrap{max-width:1380px;margin:0 auto;padding:28px 28px 40px}
+
+/* ── Page heading ── */
+.page-hd{margin-bottom:20px}
+h1.page{font-size:1.45rem;font-weight:800;letter-spacing:-.3px;margin-bottom:2px;display:flex;align-items:center;gap:8px}
+.page-sub{color:var(--text-muted);font-size:.85rem}
+
+/* ── Stat cards ── */
+.stats{display:grid;grid-template-columns:repeat(auto-fit,minmax(176px,1fr));gap:12px;margin-bottom:24px}
+.stat{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);
+  padding:16px 20px;box-shadow:var(--shadow);
+  transition:transform .15s,box-shadow .15s}
+.stat:hover{transform:translateY(-2px);box-shadow:var(--shadow-card)}
+.stat .k{font-size:.68rem;text-transform:uppercase;letter-spacing:.7px;color:var(--text-muted);font-weight:700}
+.stat .v{font-size:1.65rem;font-weight:800;margin-top:5px;color:var(--text);line-height:1.1}
+.stat .v small{font-size:.88rem;font-weight:500;color:var(--text-muted);display:block;margin-top:2px;
+  font-size:.78rem;font-weight:500}
+.stat.accent .v{color:var(--mid-blue)}
+.stat .stat-icon{font-size:1.3rem;margin-bottom:4px;opacity:.8}
+
+/* ── Controls ── */
+.controls{display:flex;flex-wrap:wrap;gap:10px;align-items:center;margin-bottom:12px}
+.search{flex:1;min-width:220px;position:relative}
+.search input{width:100%;padding:10px 14px 10px 38px;border:1px solid var(--border);
+  border-radius:10px;background:var(--surface);color:var(--text);font:inherit;font-size:.88rem;
+  transition:border-color .15s,box-shadow .15s}
+.search input:focus{outline:none;border-color:var(--mid-blue);box-shadow:0 0 0 3px rgba(49,130,206,.18)}
+.search input::placeholder{color:var(--text-muted)}
+.search svg{position:absolute;left:12px;top:50%;transform:translateY(-50%);opacity:.4;pointer-events:none}
+.seg{display:inline-flex;border:1px solid var(--border);border-radius:10px;overflow:hidden;background:var(--surface)}
+.seg button{border:none;border-right:1px solid var(--border-subtle);background:transparent;color:var(--text-muted);
+  font:inherit;font-size:.82rem;font-weight:600;padding:8px 14px;cursor:pointer;
+  transition:background .12s,color .12s}
+.seg button:last-child{border-right:none}
+.seg button.on{background:var(--mid-blue);color:#fff}
+.seg button:not(.on):hover{background:var(--surface-2);color:var(--text)}
+
+/* ── Table ── */
+.tbl-wrap{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);
+  overflow:auto;box-shadow:var(--shadow-card);-webkit-overflow-scrolling:touch}
+table{width:100%;border-collapse:collapse;font-size:.875rem;min-width:780px}
+thead th{position:sticky;top:0;z-index:10;background:var(--surface-2);color:var(--text-muted);
+  font-size:.68rem;text-transform:uppercase;letter-spacing:.55px;font-weight:700;
+  padding:11px 14px;text-align:left;white-space:nowrap;
+  border-bottom:1px solid var(--border)}
+/* Sticky rank + student columns on mobile */
+thead th:nth-child(1){position:sticky;left:0;z-index:20}
+thead th:nth-child(2){position:sticky;left:54px;z-index:20}
+/* Sticky cells must carry an explicit opaque background so scrolled columns
+   don't bleed underneath them. Match surface/stripe/hover explicitly. */
+tbody td:nth-child(1),tbody td:nth-child(2){position:sticky;z-index:5;background:var(--surface)}
+tbody td:nth-child(1){left:0}
+tbody td:nth-child(2){left:54px}
+tbody tr:nth-child(even) td:nth-child(1),
+tbody tr:nth-child(even) td:nth-child(2){background:var(--surface-stripe)}
+tbody tr:hover td:nth-child(1),
+tbody tr:hover td:nth-child(2){background:var(--surface-2) !important}
+thead th.sortable{cursor:pointer;user-select:none}
+thead th.sortable:hover{color:var(--mid-blue)}
+thead th .arr{opacity:.35;font-size:.65rem;margin-left:3px}
+thead th.sorted .arr{opacity:1;color:var(--mid-blue)}
+tbody td{padding:10px 14px;border-bottom:1px solid var(--border-subtle);vertical-align:middle;
+  transition:background .1s}
+tbody tr:last-child td{border-bottom:none}
+/* Alternating row stripe */
+tbody tr:nth-child(even) td{background:var(--surface-stripe)}
+tbody tr:hover td{background:var(--surface-2) !important}
+.c-rank{width:54px;text-align:center;color:var(--text-muted);font-weight:600;font-size:.82rem}
+.c-student{font-weight:600;white-space:nowrap;min-width:160px}
+.c-avg{font-weight:800;white-space:nowrap}
+
+/* ── GitHub avatar + handle ── */
+.gh-cell{display:flex;align-items:center;gap:9px}
+.gh-avatar{width:28px;height:28px;border-radius:50%;object-fit:cover;flex-shrink:0;
+  border:1.5px solid var(--border);
+  transition:opacity .2s,transform .15s}
+.gh-avatar:hover{transform:scale(1.12);border-color:var(--mid-blue)}
+/* Initials placeholder — same box as .gh-avatar, shown on 404 */
+.gh-fallback{display:inline-flex;align-items:center;justify-content:center;
+  width:28px;height:28px;border-radius:50%;flex-shrink:0;
+  background:var(--surface-2);border:1.5px solid var(--border);
+  font-size:11px;font-weight:700;color:var(--text-muted);
+  font-family:var(--font);letter-spacing:0;line-height:1;
+  user-select:none}
+.gh-name{display:flex;flex-direction:column;gap:1px}
+.gh-login{font-weight:600;color:var(--text);font-size:.875rem;line-height:1.2}
+.gh-at{font-size:.72rem;font-weight:500;color:var(--text-muted);letter-spacing:.1px}
+
+/* ── Progress bar ── */
+/* Width = cumulative course progress (total_pct / all exercises).
+   Single navy→blue gradient — the number in the cell carries the value;
+   colour-coding early-course low numbers as "danger" would be misleading. */
+.bar{height:5px;border-radius:4px;background:var(--border);overflow:hidden;margin-top:5px;width:80px}
+.bar i{display:block;height:100%;border-radius:4px;
+  background:linear-gradient(90deg,var(--navy),var(--mid-blue));
+  transition:width .3s ease}
+
+/* ── Exercise cells ── */
+.cell{white-space:nowrap;font-variant-numeric:tabular-nums}
+.cell .frac{font-size:.76rem;color:var(--text-muted);margin-left:2px}
+.s-pass{color:var(--green)} .s-fail{color:var(--red)} .s-late{color:var(--amber)} .s-pending{color:var(--pending)}
+.pill{display:inline-block;padding:1px 7px;border-radius:999px;font-size:.68rem;font-weight:700;letter-spacing:.2px}
+.pill.pass{background:var(--green-bg);color:var(--green)}
+.pill.late{background:var(--amber-bg);color:var(--amber)}
+.medal{font-size:1rem}
+
+/* ── Exercise column header ── */
+.ex-head{display:flex;flex-direction:column;gap:2px}
+.ex-head .lbl{font-weight:700;color:var(--text);font-size:.75rem;text-transform:none;letter-spacing:0}
+.ex-head .meta{font-size:.64rem;font-weight:500;color:var(--text-muted);text-transform:none;letter-spacing:0}
+.ex-head .rate{font-size:.64rem;font-weight:700}
+/* Overdue column: deadline passed, zero submissions */
+thead th.overdue{background:var(--amber-bg)}
+:root[data-theme="dark"] thead th.overdue{background:#2E2210}
+.overdue-badge{display:inline-block;padding:1px 5px;border-radius:999px;font-size:.62rem;
+  font-weight:700;background:var(--amber-bg);color:var(--amber);border:1px solid var(--amber);
+  text-transform:uppercase;letter-spacing:.3px}
+
+/* ── Empty / zero states ── */
+.empty{padding:56px 24px;text-align:center;color:var(--text-muted)}
+.empty .empty-icon{font-size:2.2rem;margin-bottom:10px;opacity:.5}
+.empty p{font-size:.9rem}
+
+/* ── Legend ── */
+.legend{margin-top:14px;color:var(--text-muted);font-size:.78rem;display:flex;gap:16px;flex-wrap:wrap;
+  align-items:center}
+.legend span{display:flex;align-items:center;gap:4px}
+
+/* ── Footer ── */
+footer{max-width:1380px;margin:20px auto 40px;padding:0 28px;color:var(--text-muted);font-size:.76rem;
+  display:flex;align-items:center;gap:8px}
+footer::before{content:'';display:block;height:1px;width:32px;background:var(--border)}
+
+/* ── Mobile ── */
+@media(max-width:640px){
+  .hdr .ttl .sub{display:none}
+  .wrap{padding:16px 14px 32px}
+  .stats{grid-template-columns:repeat(2,1fr);gap:10px}
+  .stat{padding:13px 15px}
+  .stat .v{font-size:1.4rem}
+  .seg button{padding:8px 10px;font-size:.78rem}
+  .legend{gap:10px}
+}
+</style>
+</head>
+<body>
+<header class="hdr"><div class="hdr-in">
+  <img src="assets/unlu_escudo.png" alt="UNLu">
+  <div class="ttl">
+    <div class="inst">Universidad Nacional de Luján</div>
+    <div class="sub">Departamento de Ciencias Básicas · Sistemas Distribuidos y Programación Paralela</div>
+  </div>
+  <span class="course-pill">SD 2026</span>
+  <img src="assets/logo_dcb.png" alt="DCB">
+  <button class="theme-btn" id="themeBtn" type="button" aria-label="Cambiar tema">
+    <span class="i-dark">☀ Claro</span><span class="i-light">☾ Oscuro</span>
+  </button>
+</div></header>
+
+<div class="wrap">
+  <div class="page-hd">
+    <h1 class="page"><span aria-hidden="true">🏆</span> Leaderboard — Sistemas Distribuidos 2026</h1>
+    <p class="page-sub" id="genStamp"></p>
+  </div>
+
+  <div class="stats" id="stats"></div>
+
+  <div class="controls">
+    <div class="search">
+      <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><circle cx="11" cy="11" r="7"/><path d="m21 21-4.3-4.3"/></svg>
+      <input id="q" type="search" placeholder="Buscar por usuario de GitHub…" autocomplete="off">
+    </div>
+    <div class="seg" id="filter">
+      <button data-f="all" class="on">Todos</button>
+      <button data-f="passing">≥ 60% progreso</button>
+      <button data-f="risk">En riesgo</button>
+      <button data-f="inactive">Sin entregas</button>
+    </div>
+  </div>
+
+  <div class="tbl-wrap">
+    <table id="board"><thead id="thead"></thead><tbody id="tbody"></tbody></table>
+    <div class="empty" id="empty" hidden>
+      <div class="empty-icon">🔍</div>
+      <p>Sin resultados para el filtro actual.</p>
+    </div>
+  </div>
+
+  <div class="legend">
+    <span><b class="s-pass">✅</b> Aprobado</span>
+    <span><b class="s-late">⏰</b> Tarde</span>
+    <span><b class="s-fail">❌</b> No aprueba</span>
+    <span><b class="s-pending">⏳</b> Sin entregar</span>
+    <span>Los usuarios son los <b>GitHub handles</b> elegidos por cada alumno.</span>
+  </div>
+</div>
+
+<footer>Generado automáticamente · Sistema de corrección UNLu DCB · Cátedra Petrocelli</footer>
+
+<script id="data" type="application/json">/*__DATA__*/</script>
+<script>
+const DATA = JSON.parse(document.getElementById('data').textContent);
+const $ = s => document.querySelector(s);
+
+// ── Constants declared first — avoid TDZ when render() fires immediately ──
+const TYPE_ICON = {docker:'🐳', kubernetes:'☸️', python:'🐍'};
+const state = {rows:[], q:'', filter:'all', sort:'avg', dir:-1};
+
+// ── Theme toggle ──
+$('#themeBtn').addEventListener('click', () => {
+  const dark = document.documentElement.getAttribute('data-theme') === 'dark';
+  if (dark){document.documentElement.removeAttribute('data-theme');localStorage.setItem('sd2026.grader.theme','light');}
+  else{document.documentElement.setAttribute('data-theme','dark');localStorage.setItem('sd2026.grader.theme','dark');}
+});
+
+// ── Empty state ──
+if (!DATA.students || !DATA.students.length){
+  $('#genStamp').textContent = 'Todavía no hay resultados cargados.';
+  $('.controls').style.display='none'; $('.tbl-wrap').style.display='none'; $('.legend').style.display='none';
+} else { render(); }
+
+function render(){
+  $('#genStamp').textContent = 'Actualizado: ' + DATA.generated;
+  renderStats();
+  renderHead();
+  state.rows = DATA.students.map((s,i)=>({...s, rank:i+1}));
+  apply();
+}
+
+// ── Stat cards ──
+function renderStats(){
+  const st = DATA.stats || {};
+  const cards = [
+    {k:'Alumnos', v:st.students ?? 0, icon:'👥'},
+    {k:'Ejercicios', v:st.exercises ?? 0, icon:'📋'},
+    {k:'Progreso medio', v:(st.overall_avg ?? 0)+'%', accent:true, icon:'📊'},
+  ];
+  if (st.next_deadline) cards.push({k:'Próxima entrega', v:st.next_deadline.label, sub:st.next_deadline.at, icon:'📅'});
+  // Hardest exercise (lowest pass rate among graded)
+  const graded = (st.per_exercise||[]).filter(e=>e.graded>0);
+  if (graded.length){
+    const hard = graded.reduce((a,b)=>b.pass_rate<a.pass_rate?b:a);
+    cards.push({k:'Más difícil', v:hard.label, sub:hard.pass_rate+'% aprueba', icon:'🎯'});
+  }
+  $('#stats').innerHTML = cards.map(c=>`<div class="stat ${c.accent?'accent':''}">
+    <div class="stat-icon" aria-hidden="true">${c.icon||''}</div>
+    <div class="k">${c.k}</div>
+    <div class="v">${c.v}${c.sub?`<small>${c.sub}</small>`:''}</div></div>`).join('');
+}
+
+// ── Table head (with per-exercise pass-rate + sortable) ──
+function renderHead(){
+  const ex = DATA.exercises||[];
+  const pe = (DATA.stats&&DATA.stats.per_exercise)||[];
+  let th = `<tr>
+    <th class="sortable" data-sort="rank"># <span class="arr">↕</span></th>
+    <th class="sortable" data-sort="name">Alumno <span class="arr">↕</span></th>
+    <th class="sortable sorted" data-sort="avg">Progreso <span class="arr">▼</span></th>`;
+  const now = Date.now();
+  ex.forEach((e,j)=>{
+    const r = pe[j]||{};
+    const dl = e.deadline ? new Date(e.deadline).toLocaleDateString('es-AR',{day:'2-digit',month:'2-digit'}) : '';
+    const noSub = !r.graded;
+    // overdue: deadline passed and nobody submitted yet
+    const overdue = e.deadline && new Date(e.deadline).getTime() < now && noSub;
+    th += `<th class="sortable${overdue?' overdue':''}" data-sort="ex${j}">
+      <div class="ex-head">
+        <span class="lbl">${TYPE_ICON[e.type]||''} ${e.label}</span>
+        <span class="meta">${dl?('Entrega '+dl+(noSub?'':' · ')):''}${overdue?'<span class="overdue-badge">vencido</span>':noSub?'sin entregas':(r.graded+' entregados')}</span>
+        ${r.graded?`<span class="rate ${r.pass_rate>=60?'s-pass':'s-fail'}">${r.pass_rate}% aprueba</span>`:'<span class="rate s-pending">—</span>'}
+      </div><span class="arr">↕</span></th>`;
+  });
+  $('#thead').innerHTML = th + '</tr>';
+  $('#thead').querySelectorAll('.sortable').forEach(h=>h.addEventListener('click',()=>sortBy(h.dataset.sort)));
+}
+
+$('#q').addEventListener('input', e=>{state.q=e.target.value.trim().toLowerCase(); apply();});
+$('#filter').addEventListener('click', e=>{
+  const b=e.target.closest('button'); if(!b)return;
+  $('#filter').querySelectorAll('button').forEach(x=>x.classList.remove('on'));
+  b.classList.add('on'); state.filter=b.dataset.f; apply();
+});
+
+function sortBy(key){
+  if(state.sort===key){state.dir*=-1;}
+  else{state.sort=key; state.dir = key==='name'?1:-1;}
+  apply();
+}
+
+function val(row,key){
+  if(key==='rank')return row.rank;
+  if(key==='name')return row.name.toLowerCase();
+  if(key==='avg')return row.avg;
+  if(key.startsWith('ex')){const j=+key.slice(2); const c=row.cells[j]||{}; return c.pct||0;}
+  return 0;
+}
+
+function apply(){
+  // "passing" / "risk" use exercises-passed ratio so filters are meaningful
+  // at any point in the course, regardless of the cumulative Progreso value.
+  const totalEx = (DATA.exercises||[]).length || 1;
+  let rows = state.rows.filter(r=>{
+    if(state.q && !r.name.toLowerCase().includes(state.q)) return false;
+    const passPct = r.done / totalEx * 100;
+    if(state.filter==='passing') return passPct >= 60;
+    if(state.filter==='risk') return r.done > 0 && passPct < 60;
+    if(state.filter==='inactive') return r.done===0;
+    return true;
+  });
+  const k=state.sort, d=state.dir;
+  rows.sort((a,b)=>{const x=val(a,k),y=val(b,k); return x<y?-1*d:x>y?1*d:0;});
+  // sort arrow indicator
+  $('#thead').querySelectorAll('th').forEach(h=>{
+    h.classList.toggle('sorted',h.dataset.sort===k);
+    const a=h.querySelector('.arr');
+    if(a){
+      if(h.dataset.sort===k){a.textContent=d===-1?'▼':'▲';}
+      else{a.textContent='↕';}
+    }
+  });
+  renderRows(rows);
+}
+
+function medal(rank){return rank===1?'🥇':rank===2?'🥈':rank===3?'🥉':'';}
+
+function cellHtml(c){
+  if(!c || c.status==='pending') return '<td class="cell s-pending" title="Sin entregar">⏳</td>';
+  const icon = c.status==='pass'?'✅':c.status==='late'?'⏰':'❌';
+  const late = c.status==='late'?' <span class="pill late">tarde</span>':'';
+  const title = c.at?`Entregado ${c.at}`:'';
+  return `<td class="cell s-${c.status}" title="${title}">${icon} ${c.pct}%<span class="frac">${c.passed}/${c.total}</span>${late}</td>`;
+}
+
+// Build student cell with GitHub avatar + handle.
+// On 404 the <img> is replaced by a same-size CSS circle showing the
+// first two characters of the login so the column layout never shifts.
+function avatarFallback(el, login){
+  const initials = login.slice(0,2).toUpperCase();
+  const span = document.createElement('span');
+  span.className = 'gh-fallback';
+  span.textContent = initials;
+  el.replaceWith(span);
+}
+function studentHtml(name){
+  const login = name; // name IS the GitHub handle
+  const avatarUrl = `https://github.com/${encodeURIComponent(login)}.png?size=40`;
+  return `<td class="c-student">
+    <div class="gh-cell">
+      <img class="gh-avatar" src="${avatarUrl}" alt="" loading="lazy"
+           onerror="avatarFallback(this,'${login.replace(/'/g,"\\'")}')">
+      <div class="gh-name">
+        <span class="gh-login">${login}</span>
+        <span class="gh-at">@${login}</span>
+      </div>
+    </div>
+  </td>`;
+}
+
+function renderRows(rows){
+  const tb=$('#tbody'), emp=$('#empty');
+  if(!rows.length){tb.innerHTML=''; emp.hidden=false; return;}
+  emp.hidden=true;
+  tb.innerHTML = rows.map(r=>{
+    const m=medal(r.rank);
+    const cells = (DATA.exercises||[]).map((_e,j)=>cellHtml(r.cells[j])).join('');
+    return `<tr>
+      <td class="c-rank">${m?`<span class="medal">${m}</span>`:r.rank}</td>
+      ${studentHtml(r.name)}
+      <td class="c-avg">${r.avg}%<div class="bar"><i style="width:${r.avg}%"></i></div></td>
+      ${cells}</tr>`;
+  }).join('');
+}
+</script>
+</body>
+</html>"""
 
 
 if __name__ == "__main__":
