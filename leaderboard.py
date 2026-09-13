@@ -18,7 +18,7 @@ import json
 import os
 import re
 from dataclasses import dataclass, field
-from datetime import datetime, timezone
+from datetime import datetime, timezone, timedelta
 from pathlib import Path
 
 import yaml
@@ -61,6 +61,15 @@ class Student:
 
 
 # ── Data sources ──────────────────────────────────────────────────────────
+
+ART = timezone(timedelta(hours=-3))
+
+
+def parse_deadline(value):
+    """Deadline de exercises.yml. Si trae huso lo respeta; si no, asume ART (-03:00)."""
+    d = datetime.fromisoformat(value)
+    return d.replace(tzinfo=ART) if d.tzinfo is None else d
+
 def get_sheet_data() -> list[list[str]]:
     creds = Credentials.from_service_account_info(
         json.loads(GOOGLE_CREDENTIALS),
@@ -182,7 +191,7 @@ def cohort_stats(students: list[Student], exercises: list[Exercise]) -> dict:
         if not ex.deadline:
             continue
         try:
-            d = datetime.fromisoformat(ex.deadline).replace(tzinfo=timezone.utc)
+            d = parse_deadline(ex.deadline)
         except ValueError:
             continue
         if d >= now and (upcoming is None or d < upcoming[1]):

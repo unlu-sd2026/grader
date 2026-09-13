@@ -21,7 +21,7 @@ import shutil
 import subprocess
 import sys
 import tempfile
-from datetime import datetime, timezone
+from datetime import datetime, timezone, timedelta
 from pathlib import Path
 
 import requests
@@ -44,6 +44,14 @@ GH_HEADERS = {
     "Accept": "application/vnd.github.v3+json",
 }
 BOT_MARKER = "<!-- grader-bot -->"
+ART = timezone(timedelta(hours=-3))
+
+
+def parse_deadline(value):
+    """Deadline de exercises.yml. Si trae huso lo respeta; si no, asume ART (-03:00)."""
+    d = datetime.fromisoformat(value)
+    return d.replace(tzinfo=ART) if d.tzinfo is None else d
+
 NOW = datetime.now(timezone.utc)
 
 
@@ -126,7 +134,7 @@ def check_deadline(exercise, commit_date_str):
     if not deadline_str:
         return "on_time"
 
-    deadline = datetime.fromisoformat(deadline_str).replace(tzinfo=timezone.utc)
+    deadline = parse_deadline(deadline_str)
     commit_date = datetime.fromisoformat(commit_date_str.replace("Z", "+00:00"))
 
     late_days = exercise.get("late_days", 0)
