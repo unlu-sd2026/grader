@@ -85,6 +85,18 @@ def get_sheet_data() -> list[list[str]]:
     return result.get("values", [])
 
 
+COHORT_YML = Path(__file__).with_name("cohort.yml")
+
+
+def load_cohort() -> set[str] | None:
+    """Handles de la cursada vigente. Sin el archivo, se listan todos."""
+    if not COHORT_YML.exists():
+        return None
+    spec = yaml.safe_load(COHORT_YML.read_text()) or {}
+    handles = spec.get("handles") or []
+    return {h.strip().lower() for h in handles if h and h.strip()} or None
+
+
 def load_exercises() -> dict[str, Exercise]:
     """Map sheet_column -> Exercise metadata from exercises.yml."""
     if not EXERCISES_YML.exists():
@@ -142,9 +154,13 @@ def build_students(
             )
             cols.append((i, ex))
 
+    cohort = load_cohort()
     students: list[Student] = []
     for row in data[1:]:
         if not row or not row[0]:
+            continue
+        # Fuera de la cursada vigente: la fila queda en la planilla, no en el panel.
+        if cohort is not None and row[0].strip().lower() not in cohort:
             continue
         cells: list[Cell] = []
         total_pct = 0

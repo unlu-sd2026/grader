@@ -1,0 +1,13 @@
+# Padrón de la cursada vigente. El leaderboard muestra SOLO estos handles.
+# Al abrir una cursada nueva se reemplaza la lista: los alumnos de cohortes
+# anteriores siguen en la planilla de resultados pero dejan de listarse.
+cohort: "2C 2026 - Comision Mercedes"
+
+handles:
+  - MateoPonti          # Ponti, Mateo Daniel (175627)
+  - mnomico             # Nomico, Mateo (168102)
+  - agustina-ortiz      # Ortiz, Maria Agustina (199523)
+  - Fedekasparian       # Kasparian, Federico Nicolas
+  - Baisa54             # sin mapear
+  - Meizers             # sin mapear
+  - jbrodi99            # sin mapear
